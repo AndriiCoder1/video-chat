@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background Circle -->
+  <circle cx="16" cy="16" r="15" fill="#4a6fa5" />
+  
+  <!-- Hand Icon (Simplified) -->
+  <g fill="#ffffff">
+    <!-- Thumb -->
+    <path d="M11,20 C10,19 9,18 9,17 C9,16 10,15 11,15 C12,15 13,16 13,17 L13,19 Z" />
+    
+    <!-- Fingers -->
+    <path d="M15,11 C15,10 16,9 17,9 C18,9 19,10 19,11 L19,19 L15,19 Z" />
+    
+    <!-- Palm -->
+    <path d="M11,19 L19,19 L19,22 C19,24 17,25 15,25 L15,25 C13,25 11,24 11,22 Z" />
+  </g>
+  
+  <!-- Speech Bubble (Simplified) -->
+  <path d="M21,13 L24,13 C25,13 26,14 26,15 L26,18 C26,19 25,20 24,20 L23,20 L21,22 Z" fill="#ffffff" />
+</svg>

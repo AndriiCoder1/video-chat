@@ -1,0 +1,50 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Global Accessibility Styles */
+:focus {
+  outline: 2px solid #4a6fa5;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  :focus {
+    outline: 2px solid CanvasText;
+  }
+}
+
+/* Remove default button styling */
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Improve readability */
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Improve form element accessibility */
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: 100%;
+}
+
+/* Prevent text size adjustment after orientation changes in iOS */
+html {
+  -webkit-text-size-adjust: 100%;
+}
