@@ -1,0 +1,30 @@
+{
+  "name": "ai-sign-language-chat",
+  "version": "1.0.0",
+  "description": "ИИ чат с жестовым языком - полнофункциональное приложение для глухонемых",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "cd server && npm install && npm start",
+    "postbuild": "cp -r client/build server/public",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": [
+    "жестовый язык",
+    "ИИ чат",
+    "доступность",
+    "машинное обучение",
+    "React",
+    "Node.js"
+  ],
+  "author": "AndriiCoder1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndriiCoder1/video-chat.git"
+  },
+  "dependencies": {
+    "openai": "^5.11.0"
+  }
+}

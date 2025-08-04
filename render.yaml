@@ -1,0 +1,32 @@
+services:
+  # Серверная часть
+  - type: web
+    name: ai-sign-chat-server
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: ai-sign-chat-server
+          property: port
+
+  # Клиентская часть
+  - type: web
+    name: ai-sign-chat-client
+    env: node
+    plan: free
+    buildCommand: cd client && npm install && npm run build
+    startCommand: cd client && npx serve -s build -l $PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_SERVER_URL
+        fromService:
+          type: web
+          name: ai-sign-chat-server
+          property: host

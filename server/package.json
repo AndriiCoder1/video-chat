@@ -1,7 +1,7 @@
 {
   "name": "sign-language-chat-server",
   "version": "1.0.0",
-  "description": "Backend server for sign language video chat application",
+  "description": "Серверная часть для ИИ чата с жестовым языком",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,19 +9,20 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "sign language",
-    "video chat",
-    "accessibility",
-    "machine learning"
+    "жестовый язык",
+    "видео чат",
+    "доступность",
+    "машинное обучение",
+    "Express.js",
+    "Node.js"
   ],
-  "author": "",
+  "author": "AndriiCoder1",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "mongoose": "^7.0.3",
-    "socket.io": "^4.6.1"
+    "mongoose": "^7.0.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
