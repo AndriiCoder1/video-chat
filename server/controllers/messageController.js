@@ -1,5 +1,8 @@
 const Message = require('../models/Message');
-
+const OpenAI = require('openai');
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY 
+});
 // Получение всех сообщений
 exports.getMessages = async (req, res) => {
   try {
@@ -49,11 +52,27 @@ exports.aiChat = async (req, res) => {
       // Обработка жестового сообщения
       aiResponse = generateSignResponse(message.content);
       animationData = generateResponseAnimation(aiResponse);
-    } else {
-      // Обработка текстового сообщения
-      aiResponse = generateTextResponse(message.content || message);
-      animationData = generateResponseAnimation(aiResponse);
-    }
+
+  const response = {
+    content: aiResponse,
+    type: 'sign',
+    userId: 'ai-assistant',
+    username: 'ИИ Помощник',
+    timestamp: new Date(),
+    confidence: Math.random() * 0.3 + 0.7, // 70-100% уверенности
+    animationData: animationData
+  };
+
+  console.log('🎯 ИИ ответ сгенерирован:', response.content);
+  res.json(response);
+  } else {
+     // Обработка текстового сообщения через GPT
+  const completion = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [{ role: "user", content: message.content || message }]
+  });
+    aiResponse = completion.choices[0].message.content;
+    animationData = generateResponseAnimation(aiResponse); 
     
     const response = {
       content: aiResponse,
@@ -67,7 +86,7 @@ exports.aiChat = async (req, res) => {
     
     console.log('🎯 ИИ ответ сгенерирован:', response.content);
     res.json(response);
-    
+   }
   } catch (error) {
     console.error('❌ Ошибка ИИ чата:', error);
     res.status(500).json({ 
