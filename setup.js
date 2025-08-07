@@ -1,8 +1,6 @@
 /**
  * Setup script for Sign Language Video Chat Application
- * 
- * This script helps users set up and run the application with a single command.
- * It installs dependencies for both client and server, and starts both in development mode.
+ * Enhanced with comprehensive logging system
  */
 
 const { spawn, exec } = require('child_process');
@@ -10,13 +8,21 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Determine the platform-specific command prefix
-const isWindows = os.platform() === 'win32';
-const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+// Configure logging system
+const logDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
 
-// Paths
-const serverPath = path.join(__dirname, 'server');
-const clientPath = path.join(__dirname, 'client');
+const setupLogStream = fs.createWriteStream(path.join(logDir, 'setup.log'), { flags: 'a' });
+const errorLogStream = fs.createWriteStream(path.join(logDir, 'setup-error.log'), { flags: 'a' });
+
+function logToFile(stream, message, context = '') {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${context} ${message}\n`;
+  stream.write(logMessage);
+  return logMessage;
+}
 
 // Colors for console output
 const colors = {
@@ -31,139 +37,212 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
+// Determine the platform-specific command prefix
+const isWindows = os.platform() === 'win32';
+const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+
+// Paths
+const serverPath = path.join(__dirname, 'server');
+const clientPath = path.join(__dirname, 'client');
+
+// Process tracking
+const activeProcesses = new Set();
+
 /**
- * Execute a command in a specific directory
- * @param {string} command - Command to execute
- * @param {string} cwd - Working directory
- * @param {string} name - Name for logging
- * @returns {Promise} - Promise that resolves when the command completes
+ * Execute a command in a specific directory with enhanced logging
  */
 function executeCommand(command, cwd, name) {
   return new Promise((resolve, reject) => {
-    console.log(`${colors.bright}${colors.blue}[${name}]${colors.reset} Running: ${command}`);
-    
-    exec(command, { cwd }, (error, stdout, stderr) => {
+    const logContext = `[${name}]`;
+    const consoleMessage = `${colors.blue}${logContext}${colors.reset} Running: ${command}`;
+    console.log(consoleMessage);
+    logToFile(setupLogStream, `Executing command: ${command}`, logContext);
+
+    const startTime = Date.now();
+    const child = exec(command, { cwd }, (error, stdout, stderr) => {
+      const duration = Date.now() - startTime;
+      
       if (error) {
-        console.error(`${colors.bright}${colors.red}[${name}]${colors.reset} Error: ${error.message}`);
+        const errorMsg = `Command failed after ${duration}ms: ${error.message}`;
+        console.error(`${colors.red}${logContext} Error:${colors.reset} ${errorMsg}`);
+        logToFile(errorLogStream, errorMsg, logContext);
+        if (stderr) logToFile(errorLogStream, stderr, logContext);
         return reject(error);
       }
       
       if (stderr) {
-        console.warn(`${colors.bright}${colors.yellow}[${name}]${colors.reset} Warning: ${stderr}`);
+        console.warn(`${colors.yellow}${logContext} Warning:${colors.reset} ${stderr.trim()}`);
+        logToFile(setupLogStream, stderr.trim(), logContext);
       }
       
-      console.log(`${colors.bright}${colors.green}[${name}]${colors.reset} Completed successfully`);
+      const successMsg = `Completed in ${duration}ms`;
+      console.log(`${colors.green}${logContext}${colors.reset} ${successMsg}`);
+      logToFile(setupLogStream, successMsg, logContext);
+      
       resolve(stdout);
     });
+
+    activeProcesses.add(child);
+    child.on('exit', () => activeProcesses.delete(child));
   });
 }
 
 /**
- * Start a long-running process
- * @param {string} command - Command to run
- * @param {Array} args - Command arguments
- * @param {string} cwd - Working directory
- * @param {string} name - Name for logging
- * @returns {ChildProcess} - The spawned process
+ * Start a long-running process with enhanced monitoring
  */
 function startProcess(command, args, cwd, name) {
-  console.log(`${colors.bright}${colors.blue}[${name}]${colors.reset} Starting: ${command} ${args.join(' ')}`);
+  const logContext = `[${name}]`;
+  const commandString = `${command} ${args.join(' ')}`;
+  const startMsg = `Starting process: ${commandString}`;
   
+  console.log(`${colors.blue}${logContext}${colors.reset} ${startMsg}`);
+  logToFile(setupLogStream, startMsg, logContext);
+
+  const startTime = Date.now();
   const process = spawn(command, args, {
     cwd,
     stdio: 'pipe',
     shell: isWindows
   });
+
+  activeProcesses.add(process);
   
   process.stdout.on('data', (data) => {
-    console.log(`${colors.bright}${colors.green}[${name}]${colors.reset} ${data.toString().trim()}`);
+    const message = data.toString().trim();
+    console.log(`${colors.green}${logContext}${colors.reset} ${message}`);
+    logToFile(setupLogStream, message, logContext);
   });
   
   process.stderr.on('data', (data) => {
-    console.error(`${colors.bright}${colors.red}[${name}]${colors.reset} ${data.toString().trim()}`);
+    const errorMessage = data.toString().trim();
+    console.error(`${colors.red}${logContext}${colors.reset} ${errorMessage}`);
+    logToFile(errorLogStream, errorMessage, logContext);
   });
   
   process.on('close', (code) => {
+    const duration = Date.now() - startTime;
+    activeProcesses.delete(process);
+    
     if (code !== 0) {
-      console.error(`${colors.bright}${colors.red}[${name}]${colors.reset} Process exited with code ${code}`);
+      const errorMsg = `Process exited with code ${code} after ${duration}ms`;
+      console.error(`${colors.red}${logContext}${colors.reset} ${errorMsg}`);
+      logToFile(errorLogStream, errorMsg, logContext);
     } else {
-      console.log(`${colors.bright}${colors.green}[${name}]${colors.reset} Process completed successfully`);
+      const successMsg = `Process completed successfully after ${duration}ms`;
+      console.log(`${colors.green}${logContext}${colors.reset} ${successMsg}`);
+      logToFile(setupLogStream, successMsg, logContext);
     }
   });
-  
+
   return process;
 }
 
 /**
- * Check if a directory exists
- * @param {string} dir - Directory path
- * @returns {boolean} - True if directory exists
+ * Check if a directory exists with logging
  */
 function directoryExists(dir) {
   try {
-    return fs.statSync(dir).isDirectory();
+    const exists = fs.statSync(dir).isDirectory();
+    logToFile(setupLogStream, `Directory check: ${dir} - ${exists ? 'Exists' : 'Missing'}`);
+    return exists;
   } catch (err) {
+    logToFile(errorLogStream, `Directory check failed: ${dir} - ${err.message}`);
     return false;
   }
 }
 
 /**
- * Main setup function
+ * Cleanup function for process termination
  */
-async function setup() {
-  console.log(`${colors.bright}${colors.magenta}=== Sign Language Video Chat Application Setup ===${colors.reset}\n`);
+async function cleanup() {
+  console.log(`\n${colors.yellow}[Cleanup]${colors.reset} Shutting down processes...`);
+  logToFile(setupLogStream, 'Initiating shutdown sequence');
+  
+  let exitCode = 0;
+  const cleanupPromises = [];
+  
+  // Send SIGTERM to all child processes
+  for (const proc of activeProcesses) {
+    cleanupPromises.push(new Promise(resolve => {
+      if (!proc.killed) {
+        proc.on('exit', () => resolve());
+        proc.kill('SIGTERM');
+      } else {
+        resolve();
+      }
+    }));
+  }
   
   try {
-    // Check if directories exist
+    await Promise.race([
+      Promise.all(cleanupPromises),
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ]);
+    logToFile(setupLogStream, 'Cleanup completed successfully');
+  } catch (err) {
+    exitCode = 1;
+    logToFile(errorLogStream, `Cleanup error: ${err.message}`);
+    console.error(`${colors.red}[Cleanup Error]${colors.reset} ${err.message}`);
+  } finally {
+    setupLogStream.end();
+    errorLogStream.end();
+    process.exit(exitCode);
+  }
+}
+
+/**
+ * Main setup function with error handling
+ */
+async function setup() {
+  console.log(`${colors.magenta}=== Sign Language Video Chat Application Setup ===${colors.reset}\n`);
+  logToFile(setupLogStream, 'Starting application setup');
+
+  try {
+    // Validate directory structure
+    logToFile(setupLogStream, 'Checking project structure');
+    
     if (!directoryExists(serverPath)) {
-      console.error(`${colors.bright}${colors.red}[Error]${colors.reset} Server directory not found: ${serverPath}`);
-      process.exit(1);
+      const errorMsg = `Server directory not found: ${serverPath}`;
+      logToFile(errorLogStream, errorMsg);
+      throw new Error(errorMsg);
     }
     
     if (!directoryExists(clientPath)) {
-      console.error(`${colors.bright}${colors.red}[Error]${colors.reset} Client directory not found: ${clientPath}`);
-      process.exit(1);
+      const errorMsg = `Client directory not found: ${clientPath}`;
+      logToFile(errorLogStream, errorMsg);
+      throw new Error(errorMsg);
     }
-    
-    // Install server dependencies
-    console.log(`${colors.bright}${colors.cyan}[Setup]${colors.reset} Installing server dependencies...`);
+
+    // Install dependencies
+    logToFile(setupLogStream, 'Installing dependencies');
+    console.log(`${colors.cyan}[Setup]${colors.reset} Installing server dependencies...`);
     await executeCommand(`${npmCmd} install`, serverPath, 'Server');
     
-    // Install client dependencies
-    console.log(`\n${colors.bright}${colors.cyan}[Setup]${colors.reset} Installing client dependencies...`);
+    console.log(`\n${colors.cyan}[Setup]${colors.reset} Installing client dependencies...`);
     await executeCommand(`${npmCmd} install`, clientPath, 'Client');
     
-    console.log(`\n${colors.bright}${colors.green}[Setup]${colors.reset} All dependencies installed successfully!`);
+    // Start application
+    logToFile(setupLogStream, 'Starting application processes');
+    console.log(`\n${colors.green}[Setup]${colors.reset} All dependencies installed successfully!`);
+    console.log(`\n${colors.cyan}[Setup]${colors.reset} Starting the application...\n`);
     
-    // Start the server and client
-    console.log(`\n${colors.bright}${colors.cyan}[Setup]${colors.reset} Starting the application...\n`);
-    
-    // Start the server
     const serverProcess = startProcess(npmCmd, ['run', 'dev'], serverPath, 'Server');
-    
-    // Wait a bit for the server to start
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Start the client
     const clientProcess = startProcess(npmCmd, ['start'], clientPath, 'Client');
-    
+
     // Handle process termination
-    const cleanup = () => {
-      console.log(`\n${colors.bright}${colors.yellow}[Setup]${colors.reset} Shutting down...`);
-      serverProcess.kill();
-      clientProcess.kill();
-      process.exit(0);
-    };
-    
     process.on('SIGINT', cleanup);
     process.on('SIGTERM', cleanup);
     
-    console.log(`\n${colors.bright}${colors.magenta}[Setup]${colors.reset} Application is running!`);
-    console.log(`${colors.bright}${colors.magenta}[Setup]${colors.reset} Press Ctrl+C to stop the application\n`);
+    console.log(`\n${colors.magenta}[Setup]${colors.reset} Application is running!`);
+    console.log(`${colors.magenta}[Setup]${colors.reset} Press Ctrl+C to stop the application\n`);
+    logToFile(setupLogStream, 'Application started successfully');
     
   } catch (error) {
-    console.error(`${colors.bright}${colors.red}[Error]${colors.reset} Setup failed: ${error.message}`);
-    process.exit(1);
+    const errorMsg = `Setup failed: ${error.message}`;
+    console.error(`${colors.red}[Error]${colors.reset} ${errorMsg}`);
+    logToFile(errorLogStream, errorMsg);
+    await cleanup();
   }
 }
 
