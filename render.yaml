@@ -10,12 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: OPENAI_API_KEY
-        
-      - key: PORT
-        fromService:
-          type: web
-          name: ai-sign-chat-server
-          property: port
+        fromSecret: OPENAI_API_KEY
 
   # Клиентская часть
   - type: web
