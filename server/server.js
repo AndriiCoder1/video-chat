@@ -12,7 +12,7 @@ const app = express();
 // Настройка CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-app.onrender.com'] 
+    ? [process.env.FRONTEND_URL || 'https://video-chat-wy8a.onrender.com'] 
     : ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true
 }));

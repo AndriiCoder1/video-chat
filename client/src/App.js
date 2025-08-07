@@ -50,7 +50,7 @@ function App() {
       // Add AI response to chat
       const aiMessage = {
         id: `ai-${Date.now()}`,
-        content: aiResponse.response,
+        content: aiResponse.content,  // Changed from aiResponse.response
         type: 'text',
         userId: 'ai-assistant',
         username: 'ИИ Помощник',

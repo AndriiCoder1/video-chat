@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: OPENAI_API_KEY
+        
       - key: PORT
         fromService:
           type: web

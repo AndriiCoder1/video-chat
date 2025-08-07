@@ -67,11 +67,16 @@ exports.aiChat = async (req, res) => {
   res.json(response);
   } else {
      // Обработка текстового сообщения через GPT
-  const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [{ role: "user", content: message.content || message }]
-  });
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: message.content || message }]
+    });
     aiResponse = completion.choices[0].message.content;
+  } catch (openaiError) {
+    console.error('❌ OpenAI API Error:', openaiError.message);
+    throw new Error(`OpenAI API failed: ${openaiError.message}`);
+  }
     animationData = generateResponseAnimation(aiResponse); 
     
     const response = {
