@@ -1,5 +1,5 @@
 /**
- * Utility functions for hand landmark processing and drawing
+ * Utility functions for both hands landmark processing and drawing
  */
 
 // Finger joint connections for drawing
@@ -11,33 +11,32 @@ const fingerJoints = {
   pinky: [0, 17, 18, 19, 20],
 };
 
-// Drawing styles
-const style = {
-  point: {
-    color: '#4fc3f7',
-    size: 6,
+// Drawing styles for different hands
+const handStyles = {
+  Left: {
+    point: { color: '#FF6B6B', size: 4 },
+    connection: { color: 'rgba(255, 107, 107, 0.8)', width: 2 }
   },
-  connection: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    width: 2,
-  },
+  Right: {
+    point: { color: '#4ECDC4', size: 4 },
+    connection: { color: 'rgba(78, 205, 196, 0.8)', width: 2 }
+  }
 };
 
 /**
- * Draw hand landmarks on canvas
- * @param {Array} predictions - Hand predictions from the handpose model
+ * Draw both hands landmarks on canvas
+ * @param {Array} handsData - Array of hand data with landmarks and handedness
  * @param {CanvasRenderingContext2D} ctx - Canvas context for drawing
  */
-export const drawHand = (predictions, ctx) => {
+export const drawBothHands = (handsData, ctx) => {
   // Clear canvas
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  // Check if we have predictions
-  if (predictions.length > 0) {
-    // Loop through each prediction
-    predictions.forEach((prediction) => {
-      // Grab landmarks
-      const landmarks = prediction.landmarks;
+  // Check if we have hands data
+  if (handsData && handsData.length > 0) {
+    handsData.forEach((handData) => {
+      const { landmarks, handedness } = handData;
+      const style = handStyles[handedness] || handStyles.Right;
       
       // Draw finger joints connections
       for (let j = 0; j < Object.keys(fingerJoints).length; j++) {
@@ -52,12 +51,12 @@ export const drawHand = (predictions, ctx) => {
           // Draw path
           ctx.beginPath();
           ctx.moveTo(
-            landmarks[firstJointIndex][0],
-            landmarks[firstJointIndex][1]
+            landmarks[firstJointIndex].x * ctx.canvas.width,
+            landmarks[firstJointIndex].y * ctx.canvas.height
           );
           ctx.lineTo(
-            landmarks[secondJointIndex][0],
-            landmarks[secondJointIndex][1]
+            landmarks[secondJointIndex].x * ctx.canvas.width,
+            landmarks[secondJointIndex].y * ctx.canvas.height
           );
           ctx.strokeStyle = style.connection.color;
           ctx.lineWidth = style.connection.width;
@@ -67,13 +66,13 @@ export const drawHand = (predictions, ctx) => {
       
       // Draw landmarks
       for (let i = 0; i < landmarks.length; i++) {
-        // Get x and y coordinates
-        const x = landmarks[i][0];
-        const y = landmarks[i][1];
+        // Get x and y coordinates (MediaPipe returns normalized coordinates)
+        const x = landmarks[i].x * ctx.canvas.width;
+        const y = landmarks[i].y * ctx.canvas.height;
         
         // Draw point
         ctx.beginPath();
-        ctx.arc(x, y, style.point.size, 0, 3 * Math.PI);
+        ctx.arc(x, y, style.point.size, 0, 2 * Math.PI);
         ctx.fillStyle = style.point.color;
         ctx.fill();
       }
@@ -82,66 +81,115 @@ export const drawHand = (predictions, ctx) => {
 };
 
 /**
- * Calculate the distance between two landmarks
- * @param {Array} landmark1 - First landmark [x, y, z]
- * @param {Array} landmark2 - Second landmark [x, y, z]
+ * Calculate the distance between two landmarks (normalized coordinates)
+ * @param {Object} landmark1 - First landmark {x, y, z}
+ * @param {Object} landmark2 - Second landmark {x, y, z}
  * @returns {number} - Euclidean distance between landmarks
  */
 export const calculateDistance = (landmark1, landmark2) => {
-  const dx = landmark1[0] - landmark2[0];
-  const dy = landmark1[1] - landmark2[1];
-  const dz = landmark1[2] - landmark2[2];
+  const dx = landmark1.x - landmark2.x;
+  const dy = landmark1.y - landmark2.y;
+  const dz = (landmark1.z || 0) - (landmark2.z || 0);
   
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 
 /**
  * Calculate the angle between three landmarks
- * @param {Array} landmark1 - First landmark [x, y, z]
- * @param {Array} landmark2 - Second landmark (vertex) [x, y, z]
- * @param {Array} landmark3 - Third landmark [x, y, z]
+ * @param {Object} landmark1 - First landmark {x, y, z}
+ * @param {Object} landmark2 - Second landmark (vertex) {x, y, z}
+ * @param {Object} landmark3 - Third landmark {x, y, z}
  * @returns {number} - Angle in degrees
  */
 export const calculateAngle = (landmark1, landmark2, landmark3) => {
   // Calculate vectors
-  const vector1 = [
-    landmark1[0] - landmark2[0],
-    landmark1[1] - landmark2[1],
-    landmark1[2] - landmark2[2],
-  ];
+  const vector1 = {
+    x: landmark1.x - landmark2.x,
+    y: landmark1.y - landmark2.y,
+    z: (landmark1.z || 0) - (landmark2.z || 0)
+  };
   
-  const vector2 = [
-    landmark3[0] - landmark2[0],
-    landmark3[1] - landmark2[1],
-    landmark3[2] - landmark2[2],
-  ];
+  const vector2 = {
+    x: landmark3.x - landmark2.x,
+    y: landmark3.y - landmark2.y,
+    z: (landmark3.z || 0) - (landmark2.z || 0)
+  };
   
   // Calculate dot product
-  const dotProduct =
-    vector1[0] * vector2[0] + vector1[1] * vector2[1] + vector1[2] * vector2[2];
+  const dotProduct = vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z;
   
   // Calculate magnitudes
-  const magnitude1 = Math.sqrt(
-    vector1[0] * vector1[0] + vector1[1] * vector1[1] + vector1[2] * vector1[2]
-  );
-  
-  const magnitude2 = Math.sqrt(
-    vector2[0] * vector2[0] + vector2[1] * vector2[1] + vector2[2] * vector2[2]
-  );
+  const magnitude1 = Math.sqrt(vector1.x * vector1.x + vector1.y * vector1.y + vector1.z * vector1.z);
+  const magnitude2 = Math.sqrt(vector2.x * vector2.x + vector2.y * vector2.y + vector2.z * vector2.z);
   
   // Calculate angle in radians
-  const angleRadians = Math.acos(dotProduct / (magnitude1 * magnitude2));
+  const angleRad = Math.acos(dotProduct / (magnitude1 * magnitude2));
   
   // Convert to degrees
-  return (angleRadians * 180) / Math.PI;
+  return angleRad * (180 / Math.PI);
 };
 
 /**
- * Extract features from hand landmarks for sign recognition
- * @param {Array} landmarks - Hand landmarks from the handpose model
- * @returns {Object} - Features for sign recognition
+ * Extract features from both hands landmarks
+ * @param {Array} handsData - Array of hand data
+ * @returns {Object} - Extracted features for both hands
  */
-export const extractHandFeatures = (landmarks) => {
+export const extractBothHandsFeatures = (handsData) => {
+  const features = {
+    leftHand: null,
+    rightHand: null,
+    bothHands: null
+  };
+  
+  if (!handsData || handsData.length === 0) {
+    return features;
+  }
+  
+  // Process each detected hand
+  handsData.forEach((handData) => {
+    const { landmarks, handedness } = handData;
+    const handFeatures = extractSingleHandFeatures(landmarks);
+    
+    if (handedness === 'Left') {
+      features.leftHand = handFeatures;
+    } else if (handedness === 'Right') {
+      features.rightHand = handFeatures;
+    }
+  });
+  
+  // Calculate features that require both hands
+  if (features.leftHand && features.rightHand) {
+    const leftHand = handsData.find(h => h.handedness === 'Left');
+    const rightHand = handsData.find(h => h.handedness === 'Right');
+    
+    features.bothHands = {
+      // Distance between hands
+      handsDistance: calculateDistance(
+        leftHand.landmarks[9], // Left hand middle finger MCP
+        rightHand.landmarks[9]  // Right hand middle finger MCP
+      ),
+      
+      // Distance between index fingertips
+      indexFingertipsDistance: calculateDistance(
+        leftHand.landmarks[8],  // Left index fingertip
+        rightHand.landmarks[8]  // Right index fingertip
+      ),
+      
+      // Relative hand positions
+      leftHandHigher: leftHand.landmarks[9].y < rightHand.landmarks[9].y,
+      handsSymmetric: Math.abs(leftHand.landmarks[9].y - rightHand.landmarks[9].y) < 0.1
+    };
+  }
+  
+  return features;
+};
+
+/**
+ * Extract features from a single hand
+ * @param {Array} landmarks - Hand landmarks
+ * @returns {Object} - Extracted features
+ */
+const extractSingleHandFeatures = (landmarks) => {
   // Calculate distances between fingertips and wrist
   const thumbToWrist = calculateDistance(landmarks[4], landmarks[0]);
   const indexToWrist = calculateDistance(landmarks[8], landmarks[0]);

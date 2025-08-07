@@ -1,38 +1,58 @@
-import { extractHandFeatures } from '../utils/handUtils';
+import { extractBothHandsFeatures } from '../utils/handUtils';
 
 /**
- * Sign language recognition service
- * This is a placeholder for a more sophisticated ML-based recognition system
+ * Enhanced sign language recognition service with both hands support
  */
 
-// Mock dictionary of sign patterns
-// In a real implementation, this would be replaced with a trained ML model
-const mockSignPatterns = {
+// Enhanced sign patterns that consider both hands
+const bothHandsSignPatterns = {
   'HELLO': {
-    // Simplified feature patterns for demonstration
-    thumbToIndex: { min: 0.1, max: 0.3 },
-    indexToMiddle: { min: 0.05, max: 0.15 },
-    thumbAngle: { min: 10, max: 40 },
-    indexAngle: { min: 150, max: 180 },
+    requiresBothHands: false,
+    rightHand: {
+      thumbToIndex: { min: 0.1, max: 0.3 },
+      indexAngle: { min: 150, max: 180 },
+    }
   },
   'THANK YOU': {
-    thumbToIndex: { min: 0.2, max: 0.4 },
-    indexToMiddle: { min: 0.1, max: 0.2 },
-    thumbAngle: { min: 30, max: 60 },
-    indexAngle: { min: 130, max: 160 },
+    requiresBothHands: true,
+    bothHands: {
+      handsDistance: { min: 0.2, max: 0.5 },
+      handsSymmetric: true
+    },
+    leftHand: {
+      thumbToIndex: { min: 0.2, max: 0.4 }
+    },
+    rightHand: {
+      thumbToIndex: { min: 0.2, max: 0.4 }
+    }
   },
   'YES': {
-    thumbToIndex: { min: 0.15, max: 0.35 },
-    indexToMiddle: { min: 0.08, max: 0.18 },
-    thumbAngle: { min: 20, max: 50 },
-    indexAngle: { min: 140, max: 170 },
+    requiresBothHands: false,
+    rightHand: {
+      thumbAngle: { min: 20, max: 50 },
+      indexAngle: { min: 140, max: 170 }
+    }
   },
   'NO': {
-    thumbToIndex: { min: 0.25, max: 0.45 },
-    indexToMiddle: { min: 0.12, max: 0.22 },
-    thumbAngle: { min: 40, max: 70 },
-    indexAngle: { min: 120, max: 150 },
+    requiresBothHands: true,
+    bothHands: {
+      indexFingertipsDistance: { min: 0.3, max: 0.7 }
+    }
   },
+  'PLEASE': {
+    requiresBothHands: true,
+    bothHands: {
+      handsDistance: { min: 0.1, max: 0.3 },
+      handsSymmetric: true
+    }
+  },
+  'LOVE': {
+    requiresBothHands: false,
+    rightHand: {
+      thumbToIndex: { min: 0.15, max: 0.35 },
+      pinkyAngle: { min: 160, max: 180 }
+    }
+  }
 };
 
 // Recent detections for smoothing
@@ -40,43 +60,56 @@ let recentDetections = [];
 const MAX_RECENT_DETECTIONS = 5;
 
 /**
- * Recognize sign language from hand gesture data
- * @param {Object} gestureData - Data containing hand landmarks and positions
+ * Recognize sign language from both hands gesture data
+ * @param {Object} gestureData - Data containing both hands landmarks and positions
  * @returns {Promise<Object>} - The recognized sign and confidence score
  */
 export const recognizeSign = async (gestureData) => {
   try {
-    // Extract features from hand landmarks
-    const features = extractHandFeatures(gestureData.landmarks);
+    if (!gestureData || !gestureData.hands || gestureData.hands.length === 0) {
+      return null;
+    }
     
-    // In a real implementation, this would use a trained ML model
-    // For now, we'll use a simple pattern matching approach
+    // Extract features from both hands
+    const features = extractBothHandsFeatures(gestureData.hands);
     
-    // Calculate match scores for each sign in our dictionary
+    // Calculate match scores for each sign pattern
     const matchScores = {};
     
-    Object.keys(mockSignPatterns).forEach(sign => {
-      const pattern = mockSignPatterns[sign];
+    Object.keys(bothHandsSignPatterns).forEach(sign => {
+      const pattern = bothHandsSignPatterns[sign];
       let score = 0;
-      let matchCount = 0;
+      let totalChecks = 0;
       
-      // Check each feature against the pattern
-      Object.keys(pattern).forEach(feature => {
-        if (features[feature] !== undefined) {
-          const { min, max } = pattern[feature];
-          const value = features[feature];
-          
-          // Check if the feature value is within the expected range
-          if (value >= min && value <= max) {
-            score += 1;
-          }
-          
-          matchCount += 1;
-        }
-      });
+      // Check if both hands are required but not available
+      if (pattern.requiresBothHands && (!features.leftHand || !features.rightHand)) {
+        matchScores[sign] = 0;
+        return;
+      }
       
-      // Calculate normalized score (0-1)
-      matchScores[sign] = matchCount > 0 ? score / matchCount : 0;
+      // Check both hands features
+      if (pattern.bothHands && features.bothHands) {
+        const bothHandsScore = checkFeatureMatch(features.bothHands, pattern.bothHands);
+        score += bothHandsScore.score;
+        totalChecks += bothHandsScore.checks;
+      }
+      
+      // Check left hand features
+      if (pattern.leftHand && features.leftHand) {
+        const leftHandScore = checkFeatureMatch(features.leftHand, pattern.leftHand);
+        score += leftHandScore.score;
+        totalChecks += leftHandScore.checks;
+      }
+      
+      // Check right hand features
+      if (pattern.rightHand && features.rightHand) {
+        const rightHandScore = checkFeatureMatch(features.rightHand, pattern.rightHand);
+        score += rightHandScore.score;
+        totalChecks += rightHandScore.checks;
+      }
+      
+      // Calculate normalized score
+      matchScores[sign] = totalChecks > 0 ? score / totalChecks : 0;
     });
     
     // Find the best match
@@ -121,16 +154,51 @@ export const recognizeSign = async (gestureData) => {
       
       return {
         text: mostCommon,
-        confidence: confidence
+        confidence: confidence,
+        handsUsed: gestureData.hands.map(h => h.handedness)
       };
     }
     
     // If no good match or below threshold, return null
     return null;
   } catch (error) {
-    console.error('Error in sign recognition:', error);
+    console.error('Error in both hands sign recognition:', error);
     return null;
   }
+};
+
+/**
+ * Check if features match a pattern
+ * @param {Object} features - Extracted features
+ * @param {Object} pattern - Pattern to match against
+ * @returns {Object} - Score and number of checks
+ */
+const checkFeatureMatch = (features, pattern) => {
+  let score = 0;
+  let checks = 0;
+  
+  Object.keys(pattern).forEach(feature => {
+    if (features[feature] !== undefined) {
+      const patternValue = pattern[feature];
+      const featureValue = features[feature];
+      
+      if (typeof patternValue === 'object' && patternValue.min !== undefined) {
+        // Range check
+        if (featureValue >= patternValue.min && featureValue <= patternValue.max) {
+          score += 1;
+        }
+      } else if (typeof patternValue === 'boolean') {
+        // Boolean check
+        if (featureValue === patternValue) {
+          score += 1;
+        }
+      }
+      
+      checks += 1;
+    }
+  });
+  
+  return { score, checks };
 };
 
 /**

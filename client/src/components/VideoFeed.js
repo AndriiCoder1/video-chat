@@ -1,11 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import * as handpose from '@tensorflow-models/handpose';
-import * as tf from '@tensorflow/tfjs';
-import { drawHand } from '../utils/handUtils';
+import { Hands } from '@mediapipe/hands';
+import { Camera } from '@mediapipe/camera_utils';
+import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+import { HAND_CONNECTIONS } from '@mediapipe/hands';
+import { drawBothHands } from '../utils/handUtils';
 
 /**
- * VideoFeed component for capturing and processing sign language
+ * VideoFeed component for capturing and processing sign language with both hands
  * @param {Object} props - Component props
  * @param {Function} props.onSignDetected - Callback when a sign is detected
  * @param {Object} props.currentSign - Currently detected sign
@@ -13,110 +15,158 @@ import { drawHand } from '../utils/handUtils';
 const VideoFeed = ({ onSignDetected, currentSign }) => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
+  const handsRef = useRef(null);
+  const cameraRef = useRef(null);
   
   const [isModelLoading, setIsModelLoading] = useState(true);
-  const [model, setModel] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [error, setError] = useState(null);
+  const [detectedHands, setDetectedHands] = useState([]);
 
-  // Load the handpose model
+  // Initialize MediaPipe Hands
   useEffect(() => {
-    const loadModel = async () => {
+    const initializeHands = async () => {
       try {
         setIsModelLoading(true);
-        // Load the TensorFlow.js model
-        const loadedModel = await handpose.load();
-        setModel(loadedModel);
+        
+        // Create MediaPipe Hands instance
+        const hands = new Hands({
+          locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+          }
+        });
+        
+        // Configure hands detection
+        hands.setOptions({
+          maxNumHands: 2, // Detect both hands
+          modelComplexity: 1,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        
+        // Set up results callback
+        hands.onResults(onResults);
+        
+        handsRef.current = hands;
         setIsModelLoading(false);
-        console.log('Handpose model loaded');
+        console.log('MediaPipe Hands initialized for both hands detection');
+        
       } catch (err) {
-        console.error('Error loading handpose model:', err);
-        setError('Failed to load hand detection model. Please refresh and try again.');
+        console.error('Error initializing MediaPipe Hands:', err);
+        setError('Не удалось загрузить модель распознавания рук. Обновите страницу и попробуйте снова.');
         setIsModelLoading(false);
       }
     };
+
+    initializeHands();
     
-    loadModel();
-    
-    // Clean up
     return () => {
-      // Safely clean up TensorFlow memory without calling dispose directly
-      try {
-        // Clear any tensors in memory
-        if (tf && typeof tf.engine === 'function') {
-          const engine = tf.engine();
-          if (engine && typeof engine.disposeVariables === 'function') {
-            engine.disposeVariables();
-          }
-        }
-      } catch (err) {
-        console.error('Error cleaning up TensorFlow resources:', err);
+      // Cleanup
+      if (cameraRef.current) {
+        cameraRef.current.stop();
       }
     };
   }, []);
 
-  // Detect hands in the video feed
+  // Initialize camera when hands model is ready
   useEffect(() => {
-    let detectionInterval;
-    
-    const runHandpose = async () => {
-      if (
-        model &&
-        webcamRef.current &&
-        webcamRef.current.video &&
-        webcamRef.current.video.readyState === 4 &&
-        canvasRef.current &&
-        isCameraOn
-      ) {
-        // Get video properties
-        const video = webcamRef.current.video;
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
+    if (!isModelLoading && handsRef.current && webcamRef.current && isCameraOn) {
+      const video = webcamRef.current.video;
+      
+      if (video) {
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            if (handsRef.current) {
+              await handsRef.current.send({ image: video });
+            }
+          },
+          width: 640,
+          height: 480
+        });
         
-        // Set canvas dimensions to match video
-        canvasRef.current.width = videoWidth;
-        canvasRef.current.height = videoHeight;
-        
-        // Make hand predictions
-        try {
-          const hand = await model.estimateHands(video);
-          
-          // Draw hand landmarks on canvas
-          const ctx = canvasRef.current.getContext('2d');
-          drawHand(hand, ctx);
-          
-          // Process hand data for sign language recognition
-          if (hand.length > 0) {
-            // Extract hand landmarks and prepare data for sign recognition
-            const gestureData = {
-              landmarks: hand[0].landmarks,
-              boundingBox: hand[0].boundingBox
-            };
-            
-            // Call the sign detection callback
-            onSignDetected(gestureData);
-          }
-        } catch (err) {
-          console.error('Error detecting hands:', err);
-        }
+        camera.start();
+        cameraRef.current = camera;
       }
-    };
-    
-    // Run detection at regular intervals
-    if (!isModelLoading && isCameraOn) {
-      detectionInterval = setInterval(runHandpose, 100); // 10 fps
     }
     
     return () => {
-      if (detectionInterval) {
-        clearInterval(detectionInterval);
+      if (cameraRef.current) {
+        cameraRef.current.stop();
       }
     };
-  }, [model, isModelLoading, isCameraOn, onSignDetected]);
+  }, [isModelLoading, isCameraOn]);
+
+  // Handle hands detection results
+  const onResults = (results) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Set canvas size to match video
+    if (webcamRef.current && webcamRef.current.video) {
+      const video = webcamRef.current.video;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+    
+    // Draw hands if detected
+    if (results.multiHandLandmarks && results.multiHandedness) {
+      const handsData = [];
+      
+      for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+        const landmarks = results.multiHandLandmarks[i];
+        const handedness = results.multiHandedness[i];
+        
+        // Draw hand landmarks and connections
+        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+          color: handedness.label === 'Left' ? '#FF0000' : '#0000FF',
+          lineWidth: 2
+        });
+        
+        drawLandmarks(ctx, landmarks, {
+          color: handedness.label === 'Left' ? '#FF6B6B' : '#4ECDC4',
+          lineWidth: 1,
+          radius: 3
+        });
+        
+        // Prepare hand data for recognition
+        handsData.push({
+          landmarks: landmarks,
+          handedness: handedness.label,
+          score: handedness.score
+        });
+      }
+      
+      setDetectedHands(handsData);
+      
+      // Send both hands data for gesture recognition
+      if (handsData.length > 0) {
+        const gestureData = {
+          hands: handsData,
+          timestamp: Date.now()
+        };
+        
+        onSignDetected(gestureData);
+      }
+    } else {
+      setDetectedHands([]);
+    }
+  };
 
   // Toggle camera on/off
   const toggleCamera = () => {
     setIsCameraOn(!isCameraOn);
+    if (cameraRef.current) {
+      if (isCameraOn) {
+        cameraRef.current.stop();
+      } else {
+        cameraRef.current.start();
+      }
+    }
   };
 
   return (
@@ -132,6 +182,11 @@ const VideoFeed = ({ onSignDetected, currentSign }) => {
               mirrored={true}
               audio={false}
               screenshotFormat="image/jpeg"
+              videoConstraints={{
+                width: 640,
+                height: 480,
+                facingMode: "user"
+              }}
             />
             <canvas
               ref={canvasRef}
@@ -142,20 +197,31 @@ const VideoFeed = ({ onSignDetected, currentSign }) => {
         
         {!isCameraOn && (
           <div className="camera-off-message">
-            <p>Camera is turned off</p>
+            <p>Камера выключена</p>
           </div>
         )}
         
         {isModelLoading && (
           <div className="loading-message">
-            <p>Loading hand detection model...</p>
+            <p>Загрузка модели распознавания рук...</p>
           </div>
         )}
         
         {currentSign && (
           <div className="sign-indicator">
             <p>{currentSign.text}</p>
-            <small>Confidence: {Math.round(currentSign.confidence * 100)}%</small>
+            <small>Уверенность: {Math.round(currentSign.confidence * 100)}%</small>
+          </div>
+        )}
+        
+        {detectedHands.length > 0 && (
+          <div className="hands-info">
+            <p>Обнаружено рук: {detectedHands.length}</p>
+            {detectedHands.map((hand, index) => (
+              <small key={index}>
+                {hand.handedness} рука (уверенность: {Math.round(hand.score * 100)}%)
+              </small>
+            ))}
           </div>
         )}
       </div>
