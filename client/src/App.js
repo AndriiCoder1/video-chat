@@ -34,7 +34,7 @@ function App() {
     try {
       setIsProcessing(true);
       
-      const response = await fetch(`${process.env.REACT_APP_SERVER_URL || 'http://localhost:5000'}/api/messages/ai-chat`, {
+      const response = await fetch(`${process.env.REACT_APP_SERVER_URL || 'https://video-chat-wy8a.onrender.com'}/api/messages/ai-chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
