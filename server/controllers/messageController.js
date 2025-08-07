@@ -74,8 +74,16 @@ exports.aiChat = async (req, res) => {
     });
     aiResponse = completion.choices[0].message.content;
   } catch (openaiError) {
-    console.error('❌ OpenAI API Error:', openaiError.message);
-    throw new Error(`OpenAI API failed: ${openaiError.message}`);
+    console.error('❌ OpenAI API Error:', openaiError);
+    
+    // Специфическая обработка ошибок
+    if (openaiError.code === 'invalid_api_key') {
+      aiResponse = 'Ошибка конфигурации API. Обратитесь к администратору.';
+    } else if (openaiError.code === 'rate_limit_exceeded') {
+      aiResponse = 'Превышен лимит запросов. Попробуйте позже.';
+    } else {
+      aiResponse = 'Временная ошибка сервиса. Попробуйте еще раз.';
+    }
   }
     animationData = generateResponseAnimation(aiResponse); 
     

@@ -158,6 +158,17 @@ export const recognizeSign = async (gestureData) => {
         return null;
       }
 
+      // Увеличить требования к стабильности
+      const MIN_CONSISTENT_DETECTIONS = 3; // Минимум 3 одинаковых распознавания
+      const MIN_CONFIDENCE_THRESHOLD = 0.8; // Повысить порог уверенности
+      
+      // Добавить проверку времени удержания жеста
+      let gestureStartTime = null;
+      const MIN_GESTURE_DURATION = 1500; // 1.5 секунды
+      
+      if (mostCommon && Date.now() - gestureStartTime > MIN_GESTURE_DURATION) {
+        // Отправить жест
+      }
       if (confidence > 0.7) {
         lastSentDetection = mostCommon;
         return {

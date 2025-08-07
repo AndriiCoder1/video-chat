@@ -97,7 +97,16 @@ const VideoFeed = ({ onSignDetected, currentSign }) => {
   }, [isModelLoading, isCameraOn]);
 
   // Handle hands detection results
+  // Добавить debounce в VideoFeed.js
+  const [lastDetectionTime, setLastDetectionTime] = useState(0);
+  const DETECTION_COOLDOWN = 2000; // 2 секунды
+  
   const onResults = (results) => {
+    const now = Date.now();
+    if (now - lastDetectionTime < DETECTION_COOLDOWN) {
+      return; // Пропустить обработку
+    }
+    
     if (!canvasRef.current) return;
     
     const canvas = canvasRef.current;
@@ -150,6 +159,7 @@ const VideoFeed = ({ onSignDetected, currentSign }) => {
           timestamp: Date.now()
         };
         
+        setLastDetectionTime(now);
         onSignDetected(gestureData);
       }
     } else {
