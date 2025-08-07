@@ -57,6 +57,7 @@ const bothHandsSignPatterns = {
 
 // Recent detections for smoothing
 let recentDetections = [];
+let lastSentDetection = null; // New: track last sent
 const MAX_RECENT_DETECTIONS = 5;
 
 /**
@@ -69,97 +70,104 @@ export const recognizeSign = async (gestureData) => {
     if (!gestureData || !gestureData.hands || gestureData.hands.length === 0) {
       return null;
     }
-    
+
     // Extract features from both hands
     const features = extractBothHandsFeatures(gestureData.hands);
-    
+
     // Calculate match scores for each sign pattern
     const matchScores = {};
-    
+
     Object.keys(bothHandsSignPatterns).forEach(sign => {
       const pattern = bothHandsSignPatterns[sign];
       let score = 0;
       let totalChecks = 0;
-      
+
       // Check if both hands are required but not available
       if (pattern.requiresBothHands && (!features.leftHand || !features.rightHand)) {
         matchScores[sign] = 0;
         return;
       }
-      
+
       // Check both hands features
       if (pattern.bothHands && features.bothHands) {
         const bothHandsScore = checkFeatureMatch(features.bothHands, pattern.bothHands);
         score += bothHandsScore.score;
         totalChecks += bothHandsScore.checks;
       }
-      
+
       // Check left hand features
       if (pattern.leftHand && features.leftHand) {
         const leftHandScore = checkFeatureMatch(features.leftHand, pattern.leftHand);
         score += leftHandScore.score;
         totalChecks += leftHandScore.checks;
       }
-      
+
       // Check right hand features
       if (pattern.rightHand && features.rightHand) {
         const rightHandScore = checkFeatureMatch(features.rightHand, pattern.rightHand);
         score += rightHandScore.score;
         totalChecks += rightHandScore.checks;
       }
-      
+
       // Calculate normalized score
       matchScores[sign] = totalChecks > 0 ? score / totalChecks : 0;
     });
-    
+
     // Find the best match
     let bestMatch = null;
     let highestScore = 0;
-    
+
     Object.keys(matchScores).forEach(sign => {
       if (matchScores[sign] > highestScore) {
         highestScore = matchScores[sign];
         bestMatch = sign;
       }
     });
-    
+
     // Add to recent detections for smoothing
-    if (bestMatch && highestScore > 0.6) { // Threshold for detection
+    if (bestMatch && highestScore > 0.7) { // Увеличен порог распознавания
       recentDetections.push(bestMatch);
-      
+
       // Keep only the most recent detections
       if (recentDetections.length > MAX_RECENT_DETECTIONS) {
         recentDetections.shift();
       }
-      
+
       // Find the most common detection in the recent history
       const counts = {};
       recentDetections.forEach(detection => {
         counts[detection] = (counts[detection] || 0) + 1;
       });
-      
+
       let mostCommon = null;
       let highestCount = 0;
-      
+
       Object.keys(counts).forEach(detection => {
         if (counts[detection] > highestCount) {
           highestCount = counts[detection];
           mostCommon = detection;
         }
       });
-      
+
       // Calculate confidence based on consistency and match score
       const consistency = highestCount / MAX_RECENT_DETECTIONS;
       const confidence = (highestScore + consistency) / 2;
-      
-      return {
-        text: mostCommon,
-        confidence: confidence,
-        handsUsed: gestureData.hands.map(h => h.handedness)
-      };
+
+      // Don't return repeated message if it's the same
+      if (mostCommon === lastSentDetection && confidence > 0.8) {
+        return null;
+      }
+
+      if (confidence > 0.7) {
+        lastSentDetection = mostCommon;
+        return {
+          text: mostCommon,
+          confidence: confidence,
+          handsUsed: gestureData.hands.map(h => h.handedness)
+        };
+      }
     }
-    
-    // If no good match or below threshold, return null
+
     return null;
   } catch (error) {
     console.error('Error in both hands sign recognition:', error);
@@ -176,28 +184,26 @@ export const recognizeSign = async (gestureData) => {
 const checkFeatureMatch = (features, pattern) => {
   let score = 0;
   let checks = 0;
-  
+
   Object.keys(pattern).forEach(feature => {
     if (features[feature] !== undefined) {
       const patternValue = pattern[feature];
       const featureValue = features[feature];
-      
+
       if (typeof patternValue === 'object' && patternValue.min !== undefined) {
-        // Range check
         if (featureValue >= patternValue.min && featureValue <= patternValue.max) {
           score += 1;
         }
       } else if (typeof patternValue === 'boolean') {
-        // Boolean check
         if (featureValue === patternValue) {
           score += 1;
         }
       }
-      
+
       checks += 1;
     }
   });
-  
+
   return { score, checks };
 };
 
@@ -207,4 +213,5 @@ const checkFeatureMatch = (features, pattern) => {
  */
 export const resetRecognition = () => {
   recentDetections = [];
+  lastSentDetection = null;
 };
