@@ -1,15 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Components
+// Компоненты
 import VideoFeed from './components/VideoFeed';
 import ChatInterface from './components/ChatInterface';
 import AvatarRenderer from './components/AvatarRenderer';
 import Header from './components/Header';
 
-// Services
+// Сервисы
 import { recognizeSign } from './services/signRecognitionService';
 
+/**
+ * Основной компонент приложения "ИИ Помощник для жестового общения"
+ * 
+ * Координирует работу всех компонентов приложения:
+ * - Управляет состоянием чата и сообщений
+ * - Обрабатывает распознавание жестов и текстовые сообщения
+ * - Взаимодействует с сервером ИИ для получения ответов
+ * - Управляет анимацией 3D-аватара
+ * - Отображает статус обработки запросов
+ * 
+ * Основной функционал:
+ * - Инициализация приложения и начального состояния
+ * - Обработка жестов, распознанных через видеопоток
+ * - Отправка и получение текстовых сообщений
+ * - Визуализация ответов ИИ через анимированного аватара
+ * - Обработка ошибок и отображение статусов
+ */
 function App() {
   const [messages, setMessages] = useState([
     {
@@ -29,7 +46,7 @@ function App() {
   const [avatarAnimation, setAvatarAnimation] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // AI Response function
+  // Функция получения ответа от ИИ
   const getAIResponse = async (userMessage) => {
     try {
       setIsProcessing(true);
@@ -47,10 +64,10 @@ function App() {
       
       const aiResponse = await response.json();
       
-      // Add AI response to chat
+      // Добавление ответа ИИ в чат
       const aiMessage = {
         id: `ai-${Date.now()}`,
-        content: aiResponse.content,  // Changed from aiResponse.response
+        content: aiResponse.content,  
         type: 'text',
         userId: 'ai-assistant',
         username: 'ИИ Помощник',
@@ -59,15 +76,15 @@ function App() {
       
       setMessages(prevMessages => [...prevMessages, aiMessage]);
       
-      // If AI response includes animation data, play it on avatar
+      // Если ответ ИИ содержит данные анимации, воспроизвести на аватаре
       if (aiResponse.animationData) {
         setAvatarAnimation(aiResponse.animationData);
       }
       
     } catch (error) {
-      console.error('Error getting AI response:', error);
+      console.error('Ошибка при получении ответа от ИИ:', error);
       
-      // Add error message
+      // Добавление сообщения об ошибке
       const errorMessage = {
         id: `error-${Date.now()}`,
         content: 'Извините, произошла ошибка. Попробуйте еще раз.',
@@ -83,22 +100,22 @@ function App() {
     }
   };
 
-  // Initialize app
+  // Инициализация приложения
   useEffect(() => {
-    console.log('AI Chat initialized');
+    console.log('ИИ-чат инициализирован');
   }, []);
 
-  // Handle sign language detection
+  // Обработка распознавания языка жестов
   const handleSignDetected = async (gestureData) => {
     try {
-      // Use the sign recognition service to interpret the gesture
+      // Использование сервиса распознавания жестов для интерпретации
       const result = await recognizeSign(gestureData);
       
       if (result && result.text) {
         setCurrentSign(result);
         
-        // After a brief delay, add the recognized sign to the chat
-        // This prevents rapid-fire messages when the same sign is held
+        // После небольшой задержки добавить распознанный жест в чат
+        // Это предотвращает быстрые сообщения при удерживании одного жеста
         setTimeout(async () => {
           const newMessage = {
             id: Date.now().toString(),
@@ -112,21 +129,21 @@ function App() {
           
           setMessages(prevMessages => [...prevMessages, newMessage]);
           
-          // Get AI response to the recognized sign
+          // Получение ответа ИИ на распознанный жест
           await getAIResponse(newMessage);
-        }, 1000); // 1-second delay
+        }, 1000); // Задержка в 1 секунду
       }
     } catch (error) {
-      console.error('Error processing sign:', error);
+      console.error('Ошибка обработки жеста:', error);
     }
   };
 
-  // Handle sending text messages
+  // Обработка отправки текстовых сообщений
   const handleSendTextMessage = async (text) => {
     try {
       if (!text.trim()) return;
       
-      // Create a new message object
+      // Создание нового объекта сообщения
       const newMessage = {
         id: Date.now().toString(),
         content: text,
@@ -136,14 +153,14 @@ function App() {
         timestamp: new Date()
       };
       
-      // Add the message to the chat
+      // Добавление сообщения в чат
       setMessages(prevMessages => [...prevMessages, newMessage]);
       
-      // Get AI response to the text message
+      //  Получение ответа ИИ на текстовое сообщение
       await getAIResponse(newMessage);
       
     } catch (error) {
-      console.error('Error sending text message:', error);
+      console.error('Ошибка отправки текстового сообщения:', error);
     }
   };
 

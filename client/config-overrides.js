@@ -1,15 +1,29 @@
 const { override } = require('customize-cra');
 
+/**
+ * Конфигурация для настройки Webpack Dev Server в Create React App
+ * Используется customize-cra для переопределения стандартных настроек CRA
+ */
 module.exports = {
-  // The function to use to create a webpack dev server configuration when running the development server with webpack-dev-server
+  /**
+   * Настраивает конфигурацию dev сервера
+   * @param {Function} configFunction - Оригинальная функция создания конфигурации dev сервера
+   * @returns {Function} Новая функция конфигурации с примененными изменениями
+   */
   devServer: function(configFunction) {
-    // Return the replacement function for create-react-app to use to generate the Webpack Dev Server config
+    // Возвращаем новую функцию конфигурации, которая заменит стандартную
     return function(proxy, allowedHost) {
+      // Получаем стандартную конфигурацию dev сервера
       const config = configFunction(proxy, allowedHost);
       
-      // Set allowedHosts to all to fix the error
+       /**
+       * Устанавливаем allowedHosts в 'all' для разрешения доступа с любых хостов
+       * Это решает проблему с ошибкой "Invalid Host header" при доступе к dev серверу
+       * с различных доменов или в Docker-контейнерах
+       */
       config.allowedHosts = 'all';
       
+      // Возвращаем измененную конфигурацию
       return config;
     };
   }

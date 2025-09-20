@@ -1,17 +1,34 @@
+/**
+ * Контроллер сообщений и AI-чата для приложения видеозвонков на языке жестов
+ * 
+ * Основные функции:
+ * - Управление сообщениями (получение, создание)
+ * - Обработка AI-чата через OpenAI GPT
+ * - Конвертация жестов в текст и обратно
+ * - Генерация анимаций для аватара
+ * - Расширенное логирование всех операций
+ */
+
 const Message = require('../models/Message');
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 
-// Настройка логгера
+// Создание директории для логов если не существует
 const logDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
+// Создание потоков для записи логов ошибок и запросов к OpenAI
 const errorLogStream = fs.createWriteStream(path.join(logDir, 'error.log'), { flags: 'a' });
 const openaiLogStream = fs.createWriteStream(path.join(logDir, 'openai.log'), { flags: 'a' });
 
+/**
+ * Логирование ошибок в файл и консоль
+ * @param {Error} error - Объект ошибки
+ * @param {string} context - Контекст где произошла ошибка
+ */
 const logError = (error, context = '') => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${context}: ${error.stack || error}\n`;
@@ -19,11 +36,19 @@ const logError = (error, context = '') => {
   console.error(logMessage);
 };
 
+/**
+ * Логирование запросов к OpenAI API
+ * @param {Object} data - Данные запроса
+ */
 const logOpenAIRequest = (data) => {
   const timestamp = new Date().toISOString();
   openaiLogStream.write(`[${timestamp}] OpenAI Request: ${JSON.stringify(data, null, 2)}\n`);
 };
 
+/**
+ * Логирование ответов от OpenAI API
+ * @param {Object} data - Данные ответа
+ */
 const logOpenAIResponse = (data) => {
   const timestamp = new Date().toISOString();
   openaiLogStream.write(`[${timestamp}] OpenAI Response: ${JSON.stringify(data, null, 2)}\n`);
@@ -33,7 +58,7 @@ const logOpenAIResponse = (data) => {
 let openai;
 try {
   openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY 
+    apiKey: process.env.OPENAI_API_KEY  // API ключ из переменных окружения
   });
   console.log('OpenAI client initialized successfully');
 } catch (initError) {
@@ -41,7 +66,11 @@ try {
   throw new Error('Failed to initialize OpenAI client');
 }
 
-// Получение всех сообщений с улучшенным логированием
+/**
+ * Получение всех сообщений из базы данных
+ * @route GET /api/messages
+ * @returns {Array} Список сообщений отсортированных по времени
+ */
 exports.getMessages = async (req, res) => {
   try {
     console.log('Fetching messages from database');
@@ -57,7 +86,15 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-// Создание нового сообщения с улучшенным логированием
+/**
+ * Создание нового сообщения
+ * @route POST /api/messages
+ * @param {string} content - Содержание сообщения
+ * @param {string} type - Тип сообщения (text/sign)
+ * @param {string} userId - ID пользователя
+ * @param {string} username - Имя пользователя
+ * @returns {Object} Созданное сообщение
+ */
 exports.createMessage = async (req, res) => {
   try {
     const { content, type, userId, username } = req.body;
@@ -83,10 +120,17 @@ exports.createMessage = async (req, res) => {
   }
 };
 
-// ИИ чат - обработка сообщений пользователя с расширенным логированием
+/**
+ * Обработка сообщений через ИИ (как текстовых, так и жестовых)
+ * @route POST /api/chat/ai
+ * @param {Object} message - Сообщение для обработки
+ * @param {string} type - Тип сообщения (text/sign)
+ * @returns {Object} Ответ ИИ с контентом и данными анимации
+ */
 exports.aiChat = async (req, res) => {
   const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9);
+  const requestId = Math.random().toString(36).substring(2, 9); // Уникальный ID для отслеживания запроса
+  
   
   try {
     const { message, type } = req.body;
@@ -113,7 +157,7 @@ exports.aiChat = async (req, res) => {
         userId: 'ai-assistant',
         username: 'ИИ Помощник',
         timestamp: new Date(),
-        confidence: Math.random() * 0.3 + 0.7,
+        confidence: Math.random() * 0.3 + 0.7, // Случайное значение уверенности между 0.7 и 1.0
         animationData: animationData
       };
 
@@ -138,7 +182,7 @@ exports.aiChat = async (req, res) => {
         const completion = await openai.chat.completions.create({
           model: "gpt-3.5-turbo",
           messages: messages,
-          temperature: 0.7
+          temperature: 0.7 // Меняем температуру для креативности ответов
         });
         
         const openaiDuration = Date.now() - startOpenAI;
@@ -170,7 +214,7 @@ exports.aiChat = async (req, res) => {
         logError(openaiError, `OpenAI API Error [${requestId}]`);
         console.error(`[${requestId}] ❌ OpenAI API Error:`, openaiErrorDetails);
         
-        // Специфическая обработка ошибок
+        // Специфическая обработка различных ошибок OpenAI API
         if (openaiError.code === 'invalid_api_key') {
           aiResponse = 'Ошибка конфигурации API. Обратитесь к администратору.';
         } else if (openaiError.code === 'rate_limit_exceeded') {
@@ -194,7 +238,7 @@ exports.aiChat = async (req, res) => {
         timestamp: new Date(),
         confidence: Math.random() * 0.3 + 0.7,
         animationData: animationData,
-        ...(openaiErrorDetails && { errorDetails: openaiErrorDetails })
+        ...(openaiErrorDetails && { errorDetails: openaiErrorDetails }) // Добавляем детали ошибки только если есть
       };
       
       console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (text):`, {
@@ -219,10 +263,16 @@ exports.aiChat = async (req, res) => {
   }
 };
 
-// Генерация ответа на жестовое сообщение
+/**
+ * Генерация ответа на жестовое сообщение
+ * @param {string} signContent - Распознанное содержание жеста
+ * @returns {string} Текстовый ответ на жест
+ */
 function generateSignResponse(signContent) {
   try {
     console.log('Generating sign response for:', signContent);
+
+    // Словарь предопределенных ответов на жесты
     const signResponses = {
       'привет': 'Привет! Рад видеть вас! 👋',
       'спасибо': 'Пожалуйста! Всегда готов помочь! 😊',
@@ -248,7 +298,11 @@ function generateSignResponse(signContent) {
   }
 }
 
-// Генерация данных анимации для аватара
+/**
+ * Генерация данных анимации для аватара на основе текста ответа
+ * @param {string} responseText - Текст ответа ИИ
+ * @returns {Object} Данные анимации для аватара
+ */
 function generateResponseAnimation(responseText) {
   try {
     if (!responseText) {
@@ -256,17 +310,18 @@ function generateResponseAnimation(responseText) {
       return null;
     }
     
+     // Расчет длительности анимации на основе длины текста
     const duration = Math.max(2000, responseText.length * 50);
     const animation = {
       type: 'gesture',
       duration: duration,
       keyframes: [
-        { time: 0, gesture: 'neutral' },
-        { time: 0.3, gesture: 'speaking' },
-        { time: 0.7, gesture: 'gesturing' },
-        { time: 1.0, gesture: 'neutral' }
+        { time: 0, gesture: 'neutral' },     // Начальное положение
+        { time: 0.3, gesture: 'speaking' },  // Начало речи
+        { time: 0.7, gesture: 'gesturing' }, // Активная жестикуляция
+        { time: 1.0, gesture: 'neutral' }    // Возврат в нейтральное положение
       ],
-      emotion: detectEmotion(responseText)
+      emotion: detectEmotion(responseText)   // Определение эмоции для анимации
     };
     
     console.log('Generated animation:', {
@@ -281,13 +336,18 @@ function generateResponseAnimation(responseText) {
   }
 }
 
-// Определение эмоции из текста для анимации
+/**
+ * Определение эмоции из текста для адекватной анимации аватара
+ * @param {string} text - Текст для анализа
+ * @returns {string} Тип эмоции (happy, sad, thinking, neutral)
+ */
 function detectEmotion(text) {
   try {
     if (!text) return 'neutral';
     
     const lowerText = text.toLowerCase();
     
+    // Определение эмоции по ключевым словам и эмодзи
     if (lowerText.includes('😊') || lowerText.includes('рад') || lowerText.includes('отлично') || 
         lowerText.includes('happy') || lowerText.includes('great')) {
       return 'happy';
@@ -308,7 +368,12 @@ function detectEmotion(text) {
   }
 }
 
-// Конвертация жеста в текст с улучшенным логированием
+/**
+ * Конвертация жеста в текст (заглушка для демонстрации)
+ * @route POST /api/sign/to-text
+ * @param {Object} gestureData - Данные жеста
+ * @returns {Object} Распознанный текст и уверенность распознавания
+ */
 exports.signToText = async (req, res) => {
   const requestId = Math.random().toString(36).substring(2, 9);
   
@@ -318,7 +383,7 @@ exports.signToText = async (req, res) => {
       gestureData: gestureData ? 'received' : 'missing'
     });
     
-    // Заглушка для демонстрации
+    // Заглушка для демонстрации - в реальном приложении здесь будет интеграция с ML моделью
     const recognizedText = 'Распознанный жест: привет';
     
     const result = { 
@@ -340,7 +405,12 @@ exports.signToText = async (req, res) => {
   }
 };
 
-// Конвертация текста в жест с улучшенным логированием
+/**
+ * Конвертация текста в жест (заглушка для демонстрации)
+ * @route POST /api/text/to-sign
+ * @param {string} text - Текст для конвертации в жест
+ * @returns {Object} Данные жестовой анимации
+ */
 exports.textToSign = async (req, res) => {
   const requestId = Math.random().toString(36).substring(2, 9);
   
@@ -350,7 +420,7 @@ exports.textToSign = async (req, res) => {
       textLength: text?.length
     });
     
-    // Заглушка для демонстрации
+    // Заглушка для демонстрации - в реальном приложении здесь будет интеграция с жестовым движком
     const gestureData = {
       gestures: ['wave', 'point', 'thumbs_up'],
       duration: 3000,
@@ -384,5 +454,6 @@ process.on('exit', () => {
   openaiLogStream.end();
 });
 
+// Обработка сигналов завершения для корректного закрытия ресурсов
 process.on('SIGINT', () => process.exit());
 process.on('SIGTERM', () => process.exit());

@@ -1,5 +1,5 @@
-// This file is used to override the default webpack configuration from react-scripts
+// // Этот файл используется для переопределения стандартной конфигурации webpack из react-scripts
 module.exports = function override(config, env) {
-  // Add your customizations here
+  // Добавьте ваши кастомизации здесь
   return config;
 };

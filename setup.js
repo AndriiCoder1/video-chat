@@ -1,6 +1,15 @@
 /**
- * Setup script for Sign Language Video Chat Application
- * Enhanced with comprehensive logging system
+ * Setup Script for Sign Language Video Chat Application
+ * 
+ * Комплексный скрипт установки и запуска приложения для видеозвонков на языке жестов
+ * Включает систему логирования, управление процессами и обработку ошибок
+ * 
+ * Основные функции:
+ * - Установка зависимостей для клиента и сервера
+ * - Параллельный запуск клиента и сервера
+ * - Детальное логирование в файлы и консоль
+ * - Корректное завершение процессов при остановке
+ * - Кросс-платформенная поддержка (Windows, macOS, Linux)
  */
 
 const { spawn, exec } = require('child_process');
@@ -8,15 +17,23 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Configure logging system
+// Создание директории для логов, если она не существует
 const logDir = path.join(__dirname, 'logs');
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
+// Создание потоков для записи логов (основных и ошибок)
 const setupLogStream = fs.createWriteStream(path.join(logDir, 'setup.log'), { flags: 'a' });
 const errorLogStream = fs.createWriteStream(path.join(logDir, 'setup-error.log'), { flags: 'a' });
 
+/**
+ * Универсальная функция логирования в файл
+ * @param {fs.WriteStream} stream - Поток для записи лога
+ * @param {string} message - Сообщение для записи
+ * @param {string} context - Контекст/источник сообщения
+ * @returns {string} - Отформатированное сообщение лога
+ */
 function logToFile(stream, message, context = '') {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${context} ${message}\n`;
@@ -24,32 +41,36 @@ function logToFile(stream, message, context = '') {
   return logMessage;
 }
 
-// Colors for console output
+// ANSI коды цветов для форматирования вывода в консоли
 const colors = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
   dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
+  red: '\x1b[31m',      // Для ошибок
+  green: '\x1b[32m',    // Для успешных операций
+  yellow: '\x1b[33m',   // Для предупреждений
+  blue: '\x1b[34m',     // Для информационных сообщений
+  magenta: '\x1b[35m',  // Для заголовков
+  cyan: '\x1b[36m',     // Для подзаголовков
 };
 
-// Determine the platform-specific command prefix
+// Определение платформы для корректного выполнения команд
 const isWindows = os.platform() === 'win32';
-const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+const npmCmd = isWindows ? 'npm.cmd' : 'npm'; // Использование npm.cmd на Windows
 
-// Paths
+// Определение путей к клиентской и серверной частям приложения
 const serverPath = path.join(__dirname, 'server');
 const clientPath = path.join(__dirname, 'client');
 
-// Process tracking
+// Множество для отслеживания активных дочерних процессов
 const activeProcesses = new Set();
 
 /**
- * Execute a command in a specific directory with enhanced logging
+ * Выполнение одиночной команды с логированием и обработкой ошибок
+ * @param {string} command - Команда для выполнения
+ * @param {string} cwd - Рабочая директория
+ * @param {string} name - Имя процесса для логирования
+ * @returns {Promise} - Промис, разрешающийся при завершении команды
  */
 function executeCommand(command, cwd, name) {
   return new Promise((resolve, reject) => {
@@ -88,7 +109,12 @@ function executeCommand(command, cwd, name) {
 }
 
 /**
- * Start a long-running process with enhanced monitoring
+ * Запуск долгоиграющего процесса с мониторингом вывода
+ * @param {string} command - Команда для выполнения
+ * @param {Array} args - Аргументы команды
+ * @param {string} cwd - Рабочая директория
+ * @param {string} name - Имя процесса для логирования
+ * @returns {ChildProcess} - Объект дочернего процесса
  */
 function startProcess(command, args, cwd, name) {
   const logContext = `[${name}]`;
@@ -107,18 +133,21 @@ function startProcess(command, args, cwd, name) {
 
   activeProcesses.add(process);
   
+  // Логирование stdout процесса
   process.stdout.on('data', (data) => {
     const message = data.toString().trim();
     console.log(`${colors.green}${logContext}${colors.reset} ${message}`);
     logToFile(setupLogStream, message, logContext);
   });
   
+  // Логирование stderr процесса
   process.stderr.on('data', (data) => {
     const errorMessage = data.toString().trim();
     console.error(`${colors.red}${logContext}${colors.reset} ${errorMessage}`);
     logToFile(errorLogStream, errorMessage, logContext);
   });
   
+  // Обработка завершения процесса
   process.on('close', (code) => {
     const duration = Date.now() - startTime;
     activeProcesses.delete(process);
@@ -138,7 +167,9 @@ function startProcess(command, args, cwd, name) {
 }
 
 /**
- * Check if a directory exists with logging
+ * Проверка существования директории
+ * @param {string} dir - Путь к директории
+ * @returns {boolean} - Существует ли директория
  */
 function directoryExists(dir) {
   try {
@@ -152,7 +183,8 @@ function directoryExists(dir) {
 }
 
 /**
- * Cleanup function for process termination
+ * Функция очистки и корректного завершения процессов
+ * @returns {Promise} - Промис, разрешающийся при завершении всех процессов
  */
 async function cleanup() {
   console.log(`\n${colors.yellow}[Cleanup]${colors.reset} Shutting down processes...`);
@@ -161,7 +193,7 @@ async function cleanup() {
   let exitCode = 0;
   const cleanupPromises = [];
   
-  // Send SIGTERM to all child processes
+  // Отправка сигнала завершения всем дочерним процессам
   for (const proc of activeProcesses) {
     cleanupPromises.push(new Promise(resolve => {
       if (!proc.killed) {
@@ -174,6 +206,7 @@ async function cleanup() {
   }
   
   try {
+    // Ожидание завершения процессов с таймаутом
     await Promise.race([
       Promise.all(cleanupPromises),
       new Promise(resolve => setTimeout(resolve, 5000))
@@ -184,6 +217,7 @@ async function cleanup() {
     logToFile(errorLogStream, `Cleanup error: ${err.message}`);
     console.error(`${colors.red}[Cleanup Error]${colors.reset} ${err.message}`);
   } finally {
+   // Закрытие потоков логирования и выход
     setupLogStream.end();
     errorLogStream.end();
     process.exit(exitCode);
@@ -191,14 +225,15 @@ async function cleanup() {
 }
 
 /**
- * Main setup function with error handling
+ * Основная функция установки и запуска приложения
+ * @returns {Promise} - Промис, разрешающийся при завершении установки
  */
 async function setup() {
   console.log(`${colors.magenta}=== Sign Language Video Chat Application Setup ===${colors.reset}\n`);
   logToFile(setupLogStream, 'Starting application setup');
 
   try {
-    // Validate directory structure
+    // Проверка структуры проекта
     logToFile(setupLogStream, 'Checking project structure');
     
     if (!directoryExists(serverPath)) {
@@ -213,7 +248,7 @@ async function setup() {
       throw new Error(errorMsg);
     }
 
-    // Install dependencies
+    // Установка зависимостей
     logToFile(setupLogStream, 'Installing dependencies');
     console.log(`${colors.cyan}[Setup]${colors.reset} Installing server dependencies...`);
     await executeCommand(`${npmCmd} install`, serverPath, 'Server');
@@ -221,24 +256,26 @@ async function setup() {
     console.log(`\n${colors.cyan}[Setup]${colors.reset} Installing client dependencies...`);
     await executeCommand(`${npmCmd} install`, clientPath, 'Client');
     
-    // Start application
+    // Запуск приложения
     logToFile(setupLogStream, 'Starting application processes');
     console.log(`\n${colors.green}[Setup]${colors.reset} All dependencies installed successfully!`);
     console.log(`\n${colors.cyan}[Setup]${colors.reset} Starting the application...\n`);
     
+    // Запуск сервера и клиента с задержкой для стабильности
     const serverProcess = startProcess(npmCmd, ['run', 'dev'], serverPath, 'Server');
     await new Promise(resolve => setTimeout(resolve, 3000));
     const clientProcess = startProcess(npmCmd, ['start'], clientPath, 'Client');
 
-    // Handle process termination
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
+    // Обработка сигналов завершения 
+    process.on('SIGINT', cleanup); // Ctrl+C
+    process.on('SIGTERM', cleanup); // Сигнал завершения
     
     console.log(`\n${colors.magenta}[Setup]${colors.reset} Application is running!`);
     console.log(`${colors.magenta}[Setup]${colors.reset} Press Ctrl+C to stop the application\n`);
     logToFile(setupLogStream, 'Application started successfully');
     
   } catch (error) {
+    // Обработка ошибок 
     const errorMsg = `Setup failed: ${error.message}`;
     console.error(`${colors.red}[Error]${colors.reset} ${errorMsg}`);
     logToFile(errorLogStream, errorMsg);
@@ -246,5 +283,5 @@ async function setup() {
   }
 }
 
-// Run the setup
+// Запуск процесса установки
 setup();

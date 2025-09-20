@@ -1,7 +1,13 @@
 import React from 'react';
 
 /**
- * Header component for the application
+ * Компонент заголовка приложения с отображением статуса ИИ
+ * 
+ * Отображает:
+ * - Название приложения
+ * - Индикатор статуса работы ИИ (готов/в процессе)
+ * - Визуальный индикатор (цветной круг) для быстрой идентификации статуса
+ * 
  * @param {Object} props - Component props
  * @param {boolean} props.isProcessing - Whether the AI is processing a request
  */

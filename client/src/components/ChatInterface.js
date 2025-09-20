@@ -1,33 +1,47 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-/**
- * ChatInterface component for displaying and sending messages
- * @param {Object} props - Component props
- * @param {Array} props.messages - Array of message objects
- * @param {Function} props.onSendMessage - Callback when a message is sent
- * @param {Object} props.currentUser - Current user information
- * @param {boolean} props.isProcessing - Whether the AI is processing a request
+ /**
+ *  Компонент интерфейса чата для отображения и отправки сообщений
+ *
+ * Основная функциональность:
+ * - Отображает историю сообщений с разделением на сообщения пользователя и собеседника
+ * - Предоставляет возможность ввода и отправки новых сообщений
+ * - Автоматически прокручивает чат к новым сообщениям
+ * - Отображает индикатор процесса, когда ИИ "думает"
+ * - Показывает уровень уверенности распознавания (если предоставлен)
+ * - Форматирует время сообщений в удобный формат
+ * 
+ * Особенности: 
+ * - Получает все данные через props, что делает компонент переиспользуемым и тестируемым
+ * - Не содержит бизнес-логики, только отображает интерфейс
+ * - Делегирует обработку событий (например, отправку сообщений) родительским компонентам
+ *
+ * @param {Object} props -  Пропсы компонента
+ * @param {Array} props.messages -  Массив объектов сообщений
+ * @param {Function} props.onSendMessage - Callback при отправке сообщения
+ * @param {Object} props.currentUser - Информация о текущем пользователе
+ * @param {boolean} props.isProcessing - Флаг обработки запроса ИИ
  */
 const ChatInterface = ({ messages, onSendMessage, currentUser, isProcessing }) => {
   const [messageText, setMessageText] = useState('');
   const messagesEndRef = useRef(null);
   
-  // Scroll to bottom when messages change
+  // Автопрокрутка к низу при изменении сообщений
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
   
-  // Scroll to the bottom of the messages container
+  // Прокрутка к нижней части контейнера сообщений
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  // Handle message input change
+  // Обработка изменения ввода сообщения
   const handleInputChange = (e) => {
     setMessageText(e.target.value);
   };
   
-  // Handle message submission
+  // Обработка отправки сообщения
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -37,7 +51,7 @@ const ChatInterface = ({ messages, onSendMessage, currentUser, isProcessing }) =
     }
   };
   
-  // Format timestamp
+  // Форматирование времени
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

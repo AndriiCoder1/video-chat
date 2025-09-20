@@ -1,50 +1,64 @@
+/**
+ * Глобальные стили для приложения "ИИ Помощник для жестового общения"
+ * 
+ * Основные функции:
+ * - Сброс стандартных стилей браузера для единообразия внешнего вида
+ * - Определение базовых типографических настроек приложения
+ * - Обеспечение доступности (a11y) элементов интерфейса
+ * - Поддержка режима высокой контрастности
+ * - Адаптация под мобильные устройства и различные браузеры
+ * - Улучшение читаемости текста и удобства взаимодействия
+ */
+
+/* Сброс стандартных отступов и настройка основного шрифта */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased; /* Сглаживание шрифтов в WebKit-браузерах */
+  -moz-osx-font-smoothing: grayscale; /* Сглаживание шрифтов в Firefox */
 }
 
+/* Стили для отображения кода */
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
 
-/* Global Accessibility Styles */
+/* Глобальные стили доступности */
 :focus {
   outline: 2px solid #4a6fa5;
   outline-offset: 2px;
 }
 
-/* High contrast mode support */
+/* Поддержка режима высокой контрастности */
 @media (forced-colors: active) {
   :focus {
     outline: 2px solid CanvasText;
   }
 }
 
-/* Remove default button styling */
+/* Сброс стандартных стилей кнопок */
 button {
   font-family: inherit;
   font-size: inherit;
 }
 
-/* Improve readability */
+/* Улучшение читаемости текстовых элементов */
 p, h1, h2, h3, h4, h5, h6 {
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
 }
 
-/* Improve form element accessibility */
+/* Улучшение доступности форм */
 input, textarea, select, button {
   font-family: inherit;
   font-size: 100%;
 }
 
-/* Prevent text size adjustment after orientation changes in iOS */
+/* Предотвращение изменения размера текста после смены ориентации в iOS */
 html {
   -webkit-text-size-adjust: 100%;
 }

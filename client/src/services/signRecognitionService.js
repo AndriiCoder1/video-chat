@@ -1,80 +1,94 @@
 import { extractBothHandsFeatures } from '../utils/handUtils';
 
 /**
- * Enhanced sign language recognition service with both hands support
+ * Сервис распознавания языка жестов с поддержкой двух рук
+ * 
+ * Основные функции:
+ * - Распознавание жестов на основе анализа положения обеих рук
+ * - Поддержка различных жестов с конфигурируемыми параметрами
+ * - Сглаживание результатов через систему недавних обнаружений
+ * - Фильтрация повторяющихся жестов для предотвращения спама
+ * - Расчет уверенности распознавания на основе согласованности жестов
+ * 
+ * Особенности реализации:
+ * - Использование MediaPipe Hands для отслеживания ключевых точек рук
+ * - Поддержка жестов, требующих одной или обеих рук
+ * - Настраиваемые параметры для каждого жеста (углы, расстояния)
+ * - Система весов и проверок для точного распознавания
  */
 
-// Enhanced sign patterns that consider both hands
+// Улучшенные шаблоны жестов с поддержкой двух рук
 const bothHandsSignPatterns = {
   'HELLO': {
-    requiresBothHands: false,
+    requiresBothHands: false, // Не требует обеих рук
     rightHand: {
-      thumbToIndex: { min: 0.1, max: 0.3 },
-      indexAngle: { min: 150, max: 180 },
+      thumbToIndex: { min: 0.1, max: 0.3 }, // Расстояние между большим и указательным пальцем
+      indexAngle: { min: 150, max: 180 }, // Угол между указательного пальца
     }
   },
   'THANK YOU': {
-    requiresBothHands: true,
+    requiresBothHands: true, // Требует обеих рук
     bothHands: {
-      handsDistance: { min: 0.2, max: 0.5 },
-      handsSymmetric: true
+      handsDistance: { min: 0.2, max: 0.5 }, // Расстояние между руками
+      handsSymmetric: true // Руки симметричны
     },
     leftHand: {
-      thumbToIndex: { min: 0.2, max: 0.4 }
+      thumbToIndex: { min: 0.2, max: 0.4 } // Расстояние между большим и указательным пальцем левой руки
     },
     rightHand: {
-      thumbToIndex: { min: 0.2, max: 0.4 }
+      thumbToIndex: { min: 0.2, max: 0.4 } // Расстояние между большим и указательным пальцем правой руки
     }
   },
   'YES': {
     requiresBothHands: false,
     rightHand: {
-      thumbAngle: { min: 20, max: 50 },
-      indexAngle: { min: 140, max: 170 }
+      thumbAngle: { min: 20, max: 50 }, // Угол большого пальца
+      indexAngle: { min: 140, max: 170 } // Угол указательного пальца
     }
   },
   'NO': {
     requiresBothHands: true,
     bothHands: {
-      indexFingertipsDistance: { min: 0.3, max: 0.7 }
+      indexFingertipsDistance: { min: 0.3, max: 0.7 } // Расстояние между кончиками указательных пальцев
     }
   },
   'PLEASE': {
     requiresBothHands: true,
     bothHands: {
-      handsDistance: { min: 0.1, max: 0.3 },
-      handsSymmetric: true
+      handsDistance: { min: 0.1, max: 0.3 }, // Расстояние между руками
+      handsSymmetric: true // Руки симметричны
     }
   },
   'LOVE': {
     requiresBothHands: false,
     rightHand: {
-      thumbToIndex: { min: 0.15, max: 0.35 },
-      pinkyAngle: { min: 160, max: 180 }
+      thumbToIndex: { min: 0.15, max: 0.35 }, // Расстояние между большим и указательным пальцем
+      pinkyAngle: { min: 160, max: 180 } // Угол мизинца
     }
   }
 };
 
-// Recent detections for smoothing
+// Хранилище недавних распознаваний для сглаживания результатов
 let recentDetections = [];
-let lastSentDetection = null; // New: track last sent
-const MAX_RECENT_DETECTIONS = 5;
+let lastSentDetection = null; // Последнее отправленное распознавание
+const MAX_RECENT_DETECTIONS = 5; // Максимальное количество хранимых распознаваний
 
 /**
- * Recognize sign language from both hands gesture data
- * @param {Object} gestureData - Data containing both hands landmarks and positions
- * @returns {Promise<Object>} - The recognized sign and confidence score
+ * Распознает язык жестов на основе данных о положении обеих рук
+ * @param {Object} gestureData - Данные, содержащие landmarks и позиции обеих рук
+ * @returns {Promise<Object>} - Распознанный жест и показатель уверенности
  */
 export const recognizeSign = async (gestureData) => {
   try {
+    // Проверка наличия данных о руках
     if (!gestureData || !gestureData.hands || gestureData.hands.length === 0) {
       return null;
     }
 
-    // Extract features from both hands
+    // Извлечение характеристик из данных обеих рук
     const features = extractBothHandsFeatures(gestureData.hands);
 
-    // Calculate match scores for each sign pattern
+    // Расчет показателей соответствия для каждого шаблона жеста
     const matchScores = {};
 
     Object.keys(bothHandsSignPatterns).forEach(sign => {
@@ -82,38 +96,38 @@ export const recognizeSign = async (gestureData) => {
       let score = 0;
       let totalChecks = 0;
 
-      // Check if both hands are required but not available
+      // Проверка требования обеих рук
       if (pattern.requiresBothHands && (!features.leftHand || !features.rightHand)) {
         matchScores[sign] = 0;
         return;
       }
 
-      // Check both hands features
+      // Проверка характеристик обеих рук
       if (pattern.bothHands && features.bothHands) {
         const bothHandsScore = checkFeatureMatch(features.bothHands, pattern.bothHands);
         score += bothHandsScore.score;
         totalChecks += bothHandsScore.checks;
       }
 
-      // Check left hand features
+      // Проверка характеристик левой руки
       if (pattern.leftHand && features.leftHand) {
         const leftHandScore = checkFeatureMatch(features.leftHand, pattern.leftHand);
         score += leftHandScore.score;
         totalChecks += leftHandScore.checks;
       }
 
-      // Check right hand features
+      // Проверка характеристик правой руки
       if (pattern.rightHand && features.rightHand) {
         const rightHandScore = checkFeatureMatch(features.rightHand, pattern.rightHand);
         score += rightHandScore.score;
         totalChecks += rightHandScore.checks;
       }
 
-      // Calculate normalized score
+      // Расчет нормализованного показателя
       matchScores[sign] = totalChecks > 0 ? score / totalChecks : 0;
     });
 
-    // Find the best match
+    // Поиск наилучшего соответствия
     let bestMatch = null;
     let highestScore = 0;
 
@@ -124,16 +138,16 @@ export const recognizeSign = async (gestureData) => {
       }
     });
 
-    // Add to recent detections for smoothing
+    // Добавление в недавние распознавания для сглаживания
     if (bestMatch && highestScore > 0.7) { // Увеличен порог распознавания
       recentDetections.push(bestMatch);
 
-      // Keep only the most recent detections
+      //  Сохранение только самых последних распознаваний
       if (recentDetections.length > MAX_RECENT_DETECTIONS) {
         recentDetections.shift();
       }
 
-      // Find the most common detection in the recent history
+      // Поиск наиболее частого распознавания в recentDetections
       const counts = {};
       recentDetections.forEach(detection => {
         counts[detection] = (counts[detection] || 0) + 1;
@@ -149,11 +163,11 @@ export const recognizeSign = async (gestureData) => {
         }
       });
 
-      // Calculate confidence based on consistency and match score
+      // Расчет уверенности на основе согласованности и показателя соответствия
       const consistency = highestCount / MAX_RECENT_DETECTIONS;
       const confidence = (highestScore + consistency) / 2;
 
-      // Don't return repeated message if it's the same
+      // Не возвращать повторяющиеся сообщения
       if (mostCommon === lastSentDetection && confidence > 0.8) {
         return null;
       }
@@ -181,16 +195,16 @@ export const recognizeSign = async (gestureData) => {
 
     return null;
   } catch (error) {
-    console.error('Error in both hands sign recognition:', error);
+    console.error('Ошибка в распознавании жестов двумя руками:', error);
     return null;
   }
 };
 
 /**
- * Check if features match a pattern
- * @param {Object} features - Extracted features
- * @param {Object} pattern - Pattern to match against
- * @returns {Object} - Score and number of checks
+ * Проверяет соответствие характеристик шаблону
+ * @param {Object} features - Извлеченные характеристики
+ * @param {Object} pattern -  Шаблон для сравнения
+ * @returns {Object} - Показатель соответствия и количество проверок
  */
 const checkFeatureMatch = (features, pattern) => {
   let score = 0;
@@ -201,11 +215,14 @@ const checkFeatureMatch = (features, pattern) => {
       const patternValue = pattern[feature];
       const featureValue = features[feature];
 
+      // Проверка диапазона значений
       if (typeof patternValue === 'object' && patternValue.min !== undefined) {
         if (featureValue >= patternValue.min && featureValue <= patternValue.max) {
           score += 1;
         }
-      } else if (typeof patternValue === 'boolean') {
+      } 
+      // Проверка булевых значений
+      else if (typeof patternValue === 'boolean') {
         if (featureValue === patternValue) {
           score += 1;
         }
@@ -219,8 +236,8 @@ const checkFeatureMatch = (features, pattern) => {
 };
 
 /**
- * Reset the recognition state
- * Useful when changing modes or users
+ * Сбрасывает состояние распознавания
+ * Полезно при смене режимов или пользователей
  */
 export const resetRecognition = () => {
   recentDetections = [];
