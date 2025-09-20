@@ -77,8 +77,8 @@ exports.recognizeSign = async (gestureData) => {
       confidence: mockSignDictionary[randomSign].confidence
     };
   } catch (error) {
-    console.error('Error in sign recognition:', error);
-    throw new Error('Failed to recognize sign');
+    console.error('Ошибка в распознавании жестов:', error);
+    throw new Error('Не удалось распознать жест');
   }
 };
 
@@ -142,8 +142,8 @@ exports.textToSignAnimation = async (text) => {
       totalDuration: words.length * 2.0
     };
   } catch (error) {
-    console.error('Error in text-to-sign conversion:', error);
-    throw new Error('Failed to convert text to sign language');
+    console.error('Ошибка при конвертации текста в жестовую анимацию:', error);
+    throw new Error('Не удалось конвертировать текст в жестовый язык');
   }
 };
 

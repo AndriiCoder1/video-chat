@@ -1,15 +1,15 @@
-# Dependencies
+# Зависимости проекта
 node_modules/
 /.pnp
 .pnp.js
 
-# Testing
+# Результаты тестирования
 /coverage
 
-# Production
+# Сборка проекта (папка build клиентской части)
 /client/build
 
-# Environment variables
+# Переменные окружения
 *.env
 *.env.*
 .env
@@ -24,12 +24,12 @@ client/.env.development
 server/.env.production
 client/.env.production
 
-# Logs
+# Логи 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Editor directories and files
+# IDE и редакторы
 .idea/
 .vscode/
 *.suo
@@ -38,7 +38,7 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# OS generated files
+# Файлы, генерируемые операционной системой (MacOS, Windows)
 .DS_Store
 .DS_Store?
 ._*
