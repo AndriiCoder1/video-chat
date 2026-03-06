@@ -10,7 +10,8 @@
  */
 
 const Message = require('../models/Message');
-const OpenAI = require('openai');
+//const OpenAI = require('openai');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
@@ -21,8 +22,8 @@ if (!fs.existsSync(logDir)) {
 }
 
 // Создание потоков для записи логов ошибок и запросов к OpenAI
-const errorLogStream = fs.createWriteStream(path.join(logDir, 'error.log'), { flags: 'a' });
-const openaiLogStream = fs.createWriteStream(path.join(logDir, 'openai.log'), { flags: 'a' });
+//const errorLogStream = fs.createWriteStream(path.join(logDir, 'error.log'), { flags: 'a' });
+//const openaiLogStream = fs.createWriteStream(path.join(logDir, 'openai.log'), { flags: 'a' });
 
 /**
  * Логирование ошибок в файл и консоль
@@ -32,39 +33,39 @@ const openaiLogStream = fs.createWriteStream(path.join(logDir, 'openai.log'), { 
 const logError = (error, context = '') => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${context}: ${error.stack || error}\n`;
-  errorLogStream.write(logMessage);
+//errorLogStream.write(logMessage);
   console.error(logMessage);
 };
 
 /**
  * Логирование запросов к OpenAI API
- * @param {Object} data - Данные запроса
+//* @param {Object} data - Данные запроса
  */
-const logOpenAIRequest = (data) => {
-  const timestamp = new Date().toISOString();
-  openaiLogStream.write(`[${timestamp}] OpenAI Request: ${JSON.stringify(data, null, 2)}\n`);
-};
+//const logOpenAIRequest = (data) => {
+//  const timestamp = new Date().toISOString();
+//  openaiLogStream.write(`[${timestamp}] OpenAI Request: ${JSON.stringify(data, null, 2)}\n`);
+//};
 
 /**
  * Логирование ответов от OpenAI API
- * @param {Object} data - Данные ответа
+//* @param {Object} data - Данные ответа
  */
-const logOpenAIResponse = (data) => {
-  const timestamp = new Date().toISOString();
-  openaiLogStream.write(`[${timestamp}] OpenAI Response: ${JSON.stringify(data, null, 2)}\n`);
-};
+//const logOpenAIResponse = (data) => {
+//  const timestamp = new Date().toISOString();
+//  openaiLogStream.write(`[${timestamp}] OpenAI Response: ${JSON.stringify(data, null, 2)}\n`);
+//};
 
 // Инициализация OpenAI с логированием
-let openai;
-try {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY  // API ключ из переменных окружения
-  });
-  console.log('OpenAI client initialized successfully');
-} catch (initError) {
-  logError(initError, 'OpenAI Initialization');
-  throw new Error('Failed to initialize OpenAI client');
-}
+//let openai;
+//try {
+//  openai = new OpenAI({
+//    apiKey: process.env.OPENAI_API_KEY  // API ключ из переменных окружения
+//  });
+//  console.log('OpenAI client initialized successfully');
+//} catch (initError) {
+//  logError(initError, 'OpenAI Initialization');
+//  throw new Error('Failed to initialize OpenAI client');
+//}
 
 /**
  * Получение всех сообщений из базы данных
@@ -143,7 +144,8 @@ exports.aiChat = async (req, res) => {
     
     let aiResponse;
     let animationData = null;
-    let openaiErrorDetails = null;
+    let spaceErrorDetails = null;
+    //let openaiErrorDetails = null;
     
     if (type === 'sign') {
       // Обработка жестового сообщения
@@ -168,61 +170,46 @@ exports.aiChat = async (req, res) => {
       console.log(`[${requestId}] Processing text message with OpenAI`);
       
       const userMessage = message.content || message;
-      const messages = [{ role: "user", content: userMessage }];
-      
-      logOpenAIRequest({
-        requestId,
-        model: "gpt-3.5-turbo",
-        messages,
-        timestamp: new Date().toISOString()
-      });
-      
+
       try {
-        const startOpenAI = Date.now();
-        const completion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: messages,
-          temperature: 0.7 // Меняем температуру для креативности ответов
+        const startSpace = Date.now();
+        
+        // Вызов Space на Hugging Face
+        const spaceResponse = await axios.post('https://Andrii1-my-chat-model.hf.space/chat', {
+          text: userMessage,
+          type: 'text'
+        }, {
+          timeout: 10000 // 10 секунд таймаут
         });
         
-        const openaiDuration = Date.now() - startOpenAI;
-        logOpenAIResponse({
-          requestId,
-          durationMs: openaiDuration,
-          response: completion,
-          timestamp: new Date().toISOString()
+        const spaceDuration = Date.now() - startSpace;
+        console.log(`[${requestId}] Hugging Face Space response received`, {
+          responseLength: spaceResponse.data.response?.length,
+          duration: spaceDuration
         });
         
-        aiResponse = completion.choices[0]?.message?.content;
-        console.log(`[${requestId}] OpenAI response received`, {
-          responseLength: aiResponse?.length,
-          duration: openaiDuration
-        });
+        aiResponse = spaceResponse.data.response;
         
         if (!aiResponse) {
-          throw new Error('Empty response from OpenAI');
+          throw new Error('Empty response from Hugging Face Space');
         }
-      } catch (openaiError) {
-        openaiErrorDetails = {
-          code: openaiError.code,
-          message: openaiError.message,
-          stack: openaiError.stack,
-          status: openaiError.status,
-          response: openaiError.response?.data
+      } catch (spaceError) {
+        spaceErrorDetails = {
+          code: spaceError.code,
+          message: spaceError.message,
+          stack: spaceError.stack,
+          status: spaceError.response?.status,
+          response: spaceError.response?.data
         };
         
-        logError(openaiError, `OpenAI API Error [${requestId}]`);
-        console.error(`[${requestId}] ❌ OpenAI API Error:`, openaiErrorDetails);
+        logError(spaceError, `Hugging Face Space Error [${requestId}]`);
+        console.error(`[${requestId}] ❌ Hugging Face Space Error:`, spaceErrorDetails);
         
-        // Специфическая обработка различных ошибок OpenAI API
-        if (openaiError.code === 'invalid_api_key') {
-          aiResponse = 'Ошибка конфигурации API. Обратитесь к администратору.';
-        } else if (openaiError.code === 'rate_limit_exceeded') {
-          aiResponse = 'Превышен лимит запросов. Попробуйте позже.';
-        } else if (openaiError.code === 'context_length_exceeded') {
-          aiResponse = 'Сообщение слишком длинное. Пожалуйста, сократите его.';
-        } else if (openaiError.status === 429) {
-          aiResponse = 'Слишком много запросов. Подождите немного.';
+        // Специфическая обработка различных ошибок
+        if (spaceError.code === 'ECONNREFUSED') {
+          aiResponse = 'Сервис ИИ временно недоступен. Попробуйте позже.';
+        } else if (spaceError.code === 'ETIMEDOUT') {
+          aiResponse = 'Сервис ИИ отвечает слишком долго. Попробуйте еще раз.';
         } else {
           aiResponse = 'Временная ошибка сервиса. Попробуйте еще раз.';
         }
@@ -238,13 +225,13 @@ exports.aiChat = async (req, res) => {
         timestamp: new Date(),
         confidence: Math.random() * 0.3 + 0.7,
         animationData: animationData,
-        ...(openaiErrorDetails && { errorDetails: openaiErrorDetails }) // Добавляем детали ошибки только если есть
+        ...(spaceErrorDetails && { errorDetails: spaceErrorDetails }) // Добавляем детали ошибки только если есть
       };
       
       console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (text):`, {
         content: response.content,
         length: response.content?.length,
-        hasError: !!openaiErrorDetails
+        hasError: !!spaceErrorDetails
       });
       
       res.json(response);
@@ -449,10 +436,10 @@ exports.textToSign = async (req, res) => {
 };
 
 // Закрытие потоков логов при завершении процесса
-process.on('exit', () => {
-  errorLogStream.end();
-  openaiLogStream.end();
-});
+//process.on('exit', () => {
+//  errorLogStream.end();
+//  openaiLogStream.end();
+//});
 
 // Обработка сигналов завершения для корректного закрытия ресурсов
 process.on('SIGINT', () => process.exit());
