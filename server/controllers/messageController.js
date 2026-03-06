@@ -179,7 +179,7 @@ exports.aiChat = async (req, res) => {
           text: userMessage,
           type: 'text'
         }, {
-          timeout: 10000 // 10 секунд таймаут
+          timeout: 30000 // 30 секунд таймаут
         });
         
         const spaceDuration = Date.now() - startSpace;
