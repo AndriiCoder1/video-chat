@@ -3,14 +3,13 @@
  * 
  * Основные функции:
  * - Управление сообщениями (получение, создание)
- * - Обработка AI-чата через OpenAI GPT
+ * - Обработка AI-чата через Hugginface
  * - Конвертация жестов в текст и обратно
  * - Генерация анимаций для аватара
  * - Расширенное логирование всех операций
  */
 
 const Message = require('../models/Message');
-//const OpenAI = require('openai');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -21,10 +20,6 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
-// Создание потоков для записи логов ошибок и запросов к OpenAI
-//const errorLogStream = fs.createWriteStream(path.join(logDir, 'error.log'), { flags: 'a' });
-//const openaiLogStream = fs.createWriteStream(path.join(logDir, 'openai.log'), { flags: 'a' });
-
 /**
  * Логирование ошибок в файл и консоль
  * @param {Error} error - Объект ошибки
@@ -33,39 +28,17 @@ if (!fs.existsSync(logDir)) {
 const logError = (error, context = '') => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${context}: ${error.stack || error}\n`;
-//errorLogStream.write(logMessage);
   console.error(logMessage);
 };
 
 /**
- * Логирование запросов к OpenAI API
+
 //* @param {Object} data - Данные запроса
  */
-//const logOpenAIRequest = (data) => {
-//  const timestamp = new Date().toISOString();
-//  openaiLogStream.write(`[${timestamp}] OpenAI Request: ${JSON.stringify(data, null, 2)}\n`);
-//};
 
 /**
- * Логирование ответов от OpenAI API
-//* @param {Object} data - Данные ответа
- */
-//const logOpenAIResponse = (data) => {
-//  const timestamp = new Date().toISOString();
-//  openaiLogStream.write(`[${timestamp}] OpenAI Response: ${JSON.stringify(data, null, 2)}\n`);
-//};
 
-// Инициализация OpenAI с логированием
-//let openai;
-//try {
-//  openai = new OpenAI({
-//    apiKey: process.env.OPENAI_API_KEY  // API ключ из переменных окружения
-//  });
-//  console.log('OpenAI client initialized successfully');
-//} catch (initError) {
-//  logError(initError, 'OpenAI Initialization');
-//  throw new Error('Failed to initialize OpenAI client');
-//}
+//* @param {Object} data - Данные ответа
 
 /**
  * Получение всех сообщений из базы данных
@@ -145,7 +118,6 @@ exports.aiChat = async (req, res) => {
     let aiResponse;
     let animationData = null;
     let spaceErrorDetails = null;
-    //let openaiErrorDetails = null;
     
     if (type === 'sign') {
       // Обработка жестового сообщения
@@ -167,7 +139,7 @@ exports.aiChat = async (req, res) => {
       res.json(response);
     } else {
       // Обработка текстового сообщения через GPT
-      console.log(`[${requestId}] Processing text message with OpenAI`);
+      console.log(`[${requestId}] Processing text message with Hugginface`);
       
       const userMessage = message.content || message;
 
@@ -437,12 +409,6 @@ exports.textToSign = async (req, res) => {
     });
   }
 };
-
-// Закрытие потоков логов при завершении процесса
-//process.on('exit', () => {
-//  errorLogStream.end();
-//  openaiLogStream.end();
-//});
 
 // Обработка сигналов завершения для корректного закрытия ресурсов
 process.on('SIGINT', () => process.exit());
