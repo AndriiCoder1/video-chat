@@ -179,7 +179,10 @@ exports.aiChat = async (req, res) => {
           text: userMessage,
           type: 'text'
         }, {
-          timeout: 60000 // 60 секунд таймаут
+          headers: {
+            'Authorization': `Bearer ${process.env.HF_TOKEN}`  
+          },
+          timeout: 300000 
         });
         
         const spaceDuration = Date.now() - startSpace;
