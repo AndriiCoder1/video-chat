@@ -78,7 +78,10 @@ function App() {
       
       // Если ответ ИИ содержит данные анимации, воспроизвести на аватаре
       if (aiResponse.animationData) {
+        console.log('🎭 Получена анимация от сервера:', JSON.stringify(aiResponse.animationData, null, 2));
         setAvatarAnimation(aiResponse.animationData);
+      } else {
+        console.log('❌ Анимация не получена');
       }
       
     } catch (error) {

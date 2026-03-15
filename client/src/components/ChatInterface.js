@@ -76,7 +76,19 @@ const ChatInterface = ({ messages, onSendMessage, currentUser, isProcessing }) =
                 message.userId === currentUser.id ? 'message-user' : 'message-other'
               } message-${message.type}`}
             >
-              <div className="message-content">{message.content}</div>
+              <div className="message-content">
+                {message.content.includes('```') ? (
+                  (() => {
+                    const codeMatch = message.content.match(/```(?:\w+)?\n?([\s\S]*?)```/);
+                    const codeContent = codeMatch ? codeMatch[1].trim() : message.content;
+                    return <pre style={{background: '#f5f5f5', padding: '10px', borderRadius: '5px'}}>{codeContent}</pre>;
+                  })()
+                ) : message.content.includes('<a href=') ? (
+                  <span dangerouslySetInnerHTML={{ __html: message.content }} />
+                ) : (
+                  message.content
+                )}
+              </div>
               <div className="message-meta">
                 <span className="message-author">
                   {message.userId === currentUser.id ? 'You' : message.username}

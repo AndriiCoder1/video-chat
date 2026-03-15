@@ -32,15 +32,6 @@ const logError = (error, context = '') => {
 };
 
 /**
-
-//* @param {Object} data - Данные запроса
- */
-
-/**
-
-//* @param {Object} data - Данные ответа
-
-/**
  * Получение всех сообщений из базы данных
  * @route GET /api/messages
  * @returns {Array} Список сообщений отсортированных по времени
@@ -103,8 +94,7 @@ exports.createMessage = async (req, res) => {
  */
 exports.aiChat = async (req, res) => {
   const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9); // Уникальный ID для отслеживания запроса
-  
+  const requestId = Math.random().toString(36).substring(2, 9);
   
   try {
     const { message, type } = req.body;
@@ -131,86 +121,311 @@ exports.aiChat = async (req, res) => {
         userId: 'ai-assistant',
         username: 'ИИ Помощник',
         timestamp: new Date(),
-        confidence: Math.random() * 0.3 + 0.7, // Случайное значение уверенности между 0.7 и 1.0
+        confidence: Math.random() * 0.3 + 0.7,
         animationData: animationData
       };
 
       console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (sign):`, response.content);
-      res.json(response);
-    } else {
-      // Обработка текстового сообщения через GPT
-      console.log(`[${requestId}] Processing text message with Hugginface`);
+      return res.json(response);
+    }
+    
+    // Обработка текстового сообщения
+    console.log(`[${requestId}] Processing text message with Hugginface`);
+    
+    const userMessage = message.content || message;
+    
+    // Функция определения типа запроса
+    function determineQueryType(message) {
+      const lowerMsg = message.toLowerCase();
       
-      const userMessage = message.content || message;
-
-      try {
-        const startSpace = Date.now();
-        
-        // Вызов Space на Hugging Face
-        const spaceResponse = await axios.post('https://Andrii1-my-chat-model.hf.space/chat', {
-          text: userMessage,
-          type: 'text'
-        }, {
-          headers: {
-            'Authorization': `Bearer ${process.env.HF_TOKEN}`  
-          },
-          timeout: 300000 
-        });
-        
-        const spaceDuration = Date.now() - startSpace;
-        console.log(`[${requestId}] Hugging Face Space response received`, {
-          responseLength: spaceResponse.data.response?.length,
-          duration: spaceDuration
-        });
-        
-        aiResponse = spaceResponse.data.response;
-        
-        if (!aiResponse) {
-          throw new Error('Empty response from Hugging Face Space');
-        }
-      } catch (spaceError) {
-        spaceErrorDetails = {
-          code: spaceError.code,
-          message: spaceError.message,
-          stack: spaceError.stack,
-          status: spaceError.response?.status,
-          response: spaceError.response?.data
-        };
-        
-        logError(spaceError, `Hugging Face Space Error [${requestId}]`);
-        console.error(`[${requestId}] ❌ Hugging Face Space Error:`, spaceErrorDetails);
-        
-        // Специфическая обработка различных ошибок
-        if (spaceError.code === 'ECONNREFUSED') {
-          aiResponse = 'Сервис ИИ временно недоступен. Попробуйте позже.';
-        } else if (spaceError.code === 'ETIMEDOUT') {
-          aiResponse = 'Сервис ИИ отвечает слишком долго. Попробуйте еще раз.';
-        } else {
-          aiResponse = 'Временная ошибка сервиса. Попробуйте еще раз.';
+      const types = {
+        price: ['цена', 'стоит', 'курс', 'price', 'cost', 'сколько стоит', 'биткоин', 'bitcoin'],
+        weather: ['погода', 'weather', 'температура'],
+        time: ['время', 'time', 'час', 'который'],
+        date: ['дата', 'date', 'день', 'число'],
+        product: ['купить', 'продажа', 'buy', 'sell', 'магазин', 'билет', 'театр', 'кино'],
+        news: ['новости', 'последние', 'свежие', 'news']
+      };
+      
+      for (const [type, keywords] of Object.entries(types)) {
+        if (keywords.some(k => lowerMsg.includes(k))) {
+          return type;
         }
       }
+      return 'general';
+    }
+
+    // Функция оптимизации поискового запроса
+    function optimizeSearchQuery(message, type) {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString("en-CA"); 
+      const year = today.getFullYear(); 
+      const optimizers = {
+        price: `${message} price USD ${dateStr} current`,
+        product: `${message} ${year} price review latest`,
+        weather: `${message} ${dateStr}`,
+        news: `${message} ${dateStr} latest`,
+        general: message
+      };
+      return optimizers[type] || message;
+    }
+
+    // Функция проверки, нужен ли поиск в интернете
+    function shouldSearchInternet(message) {
+      const lowerMsg = message.toLowerCase();
       
-      animationData = generateResponseAnimation(aiResponse); 
+      const searchTriggers = [
+        'погода', 'новости', 'курс', 'доллар', 'евро', 'биткоин',
+        'weather', 'news', 'price', 'bitcoin', 'сегодня', 'сейчас',
+        'today', 'now', 'current', 'wie spät', 'aktuelle zeit',
+        'цена', 'стоит', 'купить', 'продажа', 'билет', 'театр', 'кино',
+        'cost', 'buy', 'sell', 'ticket', 'price', 'market',
+        'последний', 'latest', 'новый', 'new', '2026', '2025'
+      ];
+      
+      for (const trigger of searchTriggers) {
+        if (lowerMsg.includes(trigger)) {
+          console.log(`[Search] Триггер поиска: "${trigger}"`);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Если запрос про время/дату - обрабатываем локально
+    if (userMessage.toLowerCase().includes('какой сегодня день') ||
+        userMessage.toLowerCase().includes('сколько сейчас время') ||
+        userMessage.toLowerCase().includes('который час') ||
+        userMessage.toLowerCase().includes('what time') ||
+        userMessage.toLowerCase().includes('what day') ||
+        userMessage.toLowerCase().includes('current time') ||
+        userMessage.toLowerCase().includes('today\'s date') ||
+        userMessage.toLowerCase().includes('wie spät') ||
+        userMessage.toLowerCase().includes('welcher tag') ||
+        userMessage.toLowerCase().includes('aktuelle zeit') ||
+        userMessage.toLowerCase().includes('heutiges datum')) {
+      
+      const now = new Date();
+      
+      // Определяем язык для ответа
+      let locale = "de-CH";  // по умолчанию 
+      let timeZone = "Europe/Zurich"; 
+      
+      if (userMessage.toLowerCase().includes('what') || 
+          userMessage.toLowerCase().includes('current') ||
+          userMessage.toLowerCase().includes('today')) {
+        locale = "en-US";
+      } else if (userMessage.toLowerCase().includes('wie') || 
+                userMessage.toLowerCase().includes('welcher') ||
+                userMessage.toLowerCase().includes('aktuelle') ||
+                userMessage.toLowerCase().includes('heutiges')) {
+        locale = "de-DE";  
+      } else if (userMessage.toLowerCase().includes('какой') || 
+                userMessage.toLowerCase().includes('сколько')) {
+        locale = "ru-RU";
+      }
+      
+      // Форматируем время с правильными настройками
+      const localTime = now.toLocaleString(locale, { 
+        timeZone: timeZone,
+        dateStyle: "full",
+        timeStyle: "medium"
+      });
       
       const response = {
-        content: aiResponse,
+        content: localTime,
         type: 'text',
         userId: 'ai-assistant',
         username: 'ИИ Помощник',
         timestamp: new Date(),
-        confidence: Math.random() * 0.3 + 0.7,
-        animationData: animationData,
-        ...(spaceErrorDetails && { errorDetails: spaceErrorDetails }) // Добавляем детали ошибки только если есть
+        confidence: 0.95,
+        animationData: generateResponseAnimation(localTime)
       };
       
-      console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (text):`, {
-        content: response.content,
-        length: response.content?.length,
-        hasError: !!spaceErrorDetails
+      console.log(`[${requestId}] 🎯 Локальное время отправлено (${locale})`);
+      return res.json(response);
+    }
+
+    // Если нужен поиск в интернете
+    if (shouldSearchInternet(userMessage)) {
+      try {
+        const GoogleSearch = require("google-search-results-nodejs").GoogleSearch;
+        const search = new GoogleSearch(process.env.SERPAPI_KEY);
+        
+        // Определяем тип и оптимизируем запрос
+        const queryType = determineQueryType(userMessage);
+        const optimizedQuery = optimizeSearchQuery(userMessage, queryType);
+        
+        // Определяем, нужен ли международный поиск
+        const isInternational = userMessage.toLowerCase().includes('биткоин') ||
+                                userMessage.toLowerCase().includes('bitcoin') ||
+                                userMessage.toLowerCase().includes('btc') ||
+                                userMessage.toLowerCase().includes('ethereum') ||
+                                userMessage.toLowerCase().includes('eth') ||
+                                userMessage.toLowerCase().includes('gold') ||
+                                userMessage.toLowerCase().includes('золото') ||
+                                userMessage.toLowerCase().includes('цена') ||
+                                userMessage.toLowerCase().includes('price') ||
+                                userMessage.toLowerCase().includes('курс') ||
+                                userMessage.toLowerCase().includes('cost');
+
+        const params = { 
+          q: optimizedQuery,
+          hl: isInternational ? "en" : "de",  
+          gl: isInternational ? "us" : "ch",  
+          num: 10
+        };
+        
+        console.log(`[${requestId}] 🔍 Поиск: "${userMessage}" → оптимизирован: "${optimizedQuery}" (тип: ${queryType})`);
+        
+        const searchResults = await new Promise((resolve, reject) => {
+          search.json(params, (data) => {
+            if (!data) return reject(new Error("Пустой ответ"));
+            if (data.error) return reject(new Error(data.error));
+            resolve(data);
+          });
+        });
+        
+        let resultText = "Результаты поиска не найдены.";
+        let firstLink = null;
+
+        if (searchResults.answer_box?.type === "weather_result") {
+          const weather = searchResults.answer_box;
+          resultText = `Погода в ${weather.location} на ${weather.date}: ${weather.weather}, температура ${weather.temperature}°${weather.unit}, осадки ${weather.precipitation}, влажность ${weather.humidity}, ветер ${weather.wind}.`;
+          firstLink = searchResults.organic_results?.[0]?.link || null;
+          
+          const displayText = resultText + (firstLink ? ` Подробнее: <a href="${firstLink}" target="_blank">${firstLink}</a>` : '');
+        
+          const response = {
+          content: displayText,
+          type: 'text',
+          userId: 'ai-assistant',
+          username: 'ИИ Помощник',
+          timestamp: new Date(),
+          confidence: 0.9,
+          animationData: generateResponseAnimation(resultText)
+        };
+        
+        console.log(`[${requestId}] 🎯 Погода отправлена`);
+        return res.json(response);
+        
+      } else if (searchResults.organic_results?.[0]) {
+        resultText = searchResults.organic_results[0].snippet;
+        firstLink = searchResults.organic_results[0].link;
+      }
+
+    
+      const displayText = resultText + (firstLink ? ` Подробнее: <a href="${firstLink}" target="_blank">${firstLink}</a>` : '');
+      
+      const searchResponse = {
+        content: displayText,
+        type: 'text',
+        userId: 'ai-assistant',
+        username: 'ИИ Помощник',
+        timestamp: new Date(),
+        confidence: 0.85,
+        animationData: generateResponseAnimation(resultText)
+      };
+      
+      console.log(`[${requestId}] 🎯 Результат поиска отправлен`);
+      return res.json(searchResponse);
+      
+    } catch (err) {
+      console.error('[Search] Ошибка:', err);
+      // Если поиск не сработал, идём дальше к AI
+    }
+  }
+
+  // Детектор запросов на код
+  const isCodeRequest = userMessage.toLowerCase().includes('код') ||
+                          userMessage.toLowerCase().includes('function') ||
+                          userMessage.toLowerCase().includes('def') ||
+                          userMessage.toLowerCase().includes('python') ||
+                          userMessage.toLowerCase().includes('javascript') ||
+                          userMessage.toLowerCase().includes('напиши');
+
+    let promptText = userMessage;
+    if (isCodeRequest) {
+      promptText = `Ты — AI-помощник, специализирующийся на написании кода.
+      
+Правила:
+1. Отвечай ТОЛЬКО кодом, без пояснений
+2. Используй латинские буквы для названий функций и переменных
+3. Пиши полные, рабочие функции
+4. Для Python: используй def и return
+5. Для JavaScript: используй function или async function
+
+Запрос: ${userMessage}
+
+Код:`;
+    }
+
+    try {
+      const startSpace = Date.now();
+      
+      const spaceResponse = await axios.post('https://Andrii1-my-chat-model.hf.space/chat', {
+        text: promptText,
+        type: 'text'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${process.env.HF_TOKEN}`
+        },
+        timeout: 300000
       });
       
-      res.json(response);
+      const spaceDuration = Date.now() - startSpace;
+      console.log(`[${requestId}] Hugging Face Space response received`, {
+        responseLength: spaceResponse.data.response?.length,
+        duration: spaceDuration
+      });
+      
+      aiResponse = spaceResponse.data.response;
+      
+      if (!aiResponse) {
+        throw new Error('Empty response from Hugging Face Space');
+      }
+    } catch (spaceError) {
+      spaceErrorDetails = {
+        code: spaceError.code,
+        message: spaceError.message,
+        stack: spaceError.stack,
+        status: spaceError.response?.status,
+        response: spaceError.response?.data
+      };
+      
+      logError(spaceError, `Hugging Face Space Error [${requestId}]`);
+      console.error(`[${requestId}] ❌ Hugging Face Space Error:`, spaceErrorDetails);
+      
+      if (spaceError.code === 'ECONNREFUSED') {
+        aiResponse = 'Сервис ИИ временно недоступен. Попробуйте позже.';
+      } else if (spaceError.code === 'ETIMEDOUT') {
+        aiResponse = 'Сервис ИИ отвечает слишком долго. Попробуйте еще раз.';
+      } else {
+        aiResponse = 'Временная ошибка сервиса. Попробуйте еще раз.';
+      }
     }
+    
+    animationData = generateResponseAnimation(aiResponse);
+    
+    const response = {
+      content: aiResponse,
+      type: 'text',
+      userId: 'ai-assistant',
+      username: 'ИИ Помощник',
+      timestamp: new Date(),
+      confidence: Math.random() * 0.3 + 0.7,
+      animationData: animationData,
+      ...(spaceErrorDetails && { errorDetails: spaceErrorDetails })
+    };
+    
+    console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (text):`, {
+      content: response.content,
+      length: response.content?.length,
+      hasError: !!spaceErrorDetails
+    });
+    
+    res.json(response);
+    
   } catch (error) {
     const duration = Date.now() - startTime;
     logError(error, `aiChat [${requestId}]`);
@@ -234,7 +449,6 @@ function generateSignResponse(signContent) {
   try {
     console.log('Generating sign response for:', signContent);
 
-    // Словарь предопределенных ответов на жесты
     const signResponses = {
       'привет': 'Привет! Рад видеть вас! 👋',
       'спасибо': 'Пожалуйста! Всегда готов помочь! 😊',
@@ -272,25 +486,38 @@ function generateResponseAnimation(responseText) {
       return null;
     }
     
-     // Расчет длительности анимации на основе длины текста
     const duration = Math.max(2000, responseText.length * 50);
+    
+    // Простая анимация для теста
     const animation = {
       type: 'gesture',
       duration: duration,
-      keyframes: [
-        { time: 0, gesture: 'neutral' },     // Начальное положение
-        { time: 0.3, gesture: 'speaking' },  // Начало речи
-        { time: 0.7, gesture: 'gesturing' }, // Активная жестикуляция
-        { time: 1.0, gesture: 'neutral' }    // Возврат в нейтральное положение
+      tracks: [
+        {
+          object: 'rightHand', 
+          property: 'position',
+          keyframes: [
+            { time: 0, value: { x: 0.45, y: 0.3, z: 0 } },
+            { time: duration * 0.3, value: { x: 0.6, y: 0.5, z: 0.2 } },
+            { time: duration * 0.7, value: { x: 0.3, y: 0.4, z: -0.2 } },
+            { time: duration, value: { x: 0.45, y: 0.3, z: 0 } }
+          ]
+        },
+        {
+          object: 'leftHand',
+          property: 'position',
+          keyframes: [
+            { time: 0, value: { x: -0.45, y: 0.3, z: 0 } },
+            { time: duration * 0.3, value: { x: -0.6, y: 0.5, z: -0.2 } },
+            { time: duration * 0.7, value: { x: -0.3, y: 0.4, z: 0.2 } },
+            { time: duration, value: { x: -0.45, y: 0.3, z: 0 } }
+          ]
+        }
       ],
-      emotion: detectEmotion(responseText)   // Определение эмоции для анимации
+      emotion: detectEmotion(responseText)
     };
     
-    console.log('Generated animation:', {
-      duration,
-      emotion: animation.emotion
-    });
-    
+    console.log('Generated animation:', animation);
     return animation;
   } catch (error) {
     logError(error, 'generateResponseAnimation');
@@ -309,7 +536,6 @@ function detectEmotion(text) {
     
     const lowerText = text.toLowerCase();
     
-    // Определение эмоции по ключевым словам и эмодзи
     if (lowerText.includes('😊') || lowerText.includes('рад') || lowerText.includes('отлично') || 
         lowerText.includes('happy') || lowerText.includes('great')) {
       return 'happy';
@@ -345,7 +571,6 @@ exports.signToText = async (req, res) => {
       gestureData: gestureData ? 'received' : 'missing'
     });
     
-    // Заглушка для демонстрации - в реальном приложении здесь будет интеграция с ML моделью
     const recognizedText = 'Распознанный жест: привет';
     
     const result = { 
@@ -382,7 +607,6 @@ exports.textToSign = async (req, res) => {
       textLength: text?.length
     });
     
-    // Заглушка для демонстрации - в реальном приложении здесь будет интеграция с жестовым движком
     const gestureData = {
       gestures: ['wave', 'point', 'thumbs_up'],
       duration: 3000,

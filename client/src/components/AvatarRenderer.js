@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 /**
  * Компонент AvatarRenderer для отображения 3D аватара с анимацией
  * @param {Object} props - Компонентные пропсы
@@ -31,7 +31,8 @@ const AvatarRenderer = ({ animationData }) => {
       0.1,
       1000
     );
-    camera.position.z = 2;
+    camera.position.z = 4;
+    camera.position.y = 2;
     cameraRef.current = camera;
     
     // Создание рендерера
@@ -52,7 +53,7 @@ const AvatarRenderer = ({ animationData }) => {
     scene.add(directionalLight);
     
     // Создание простого аватара (заглушка)
-    createPlaceholderAvatar();
+    loadAvatarModel();
     
     // Обработка изменения размера окна
     const handleResize = () => {
@@ -152,153 +153,191 @@ const AvatarRenderer = ({ animationData }) => {
     };
   }, []);
   
-  // Создание простого аватара-заглушки
-  const createPlaceholderAvatar = () => {
+  // Загрузка GLB модели вместо создания из примитивов
+  const loadAvatarModel = () => {
     if (!sceneRef.current) return;
     
-    // Создание группы для аватара
-    const avatarGroup = new THREE.Group();
-    sceneRef.current.add(avatarGroup);
+    const loader = new GLTFLoader();
     
-    // Создание простых геометрических фигур для частей тела
-    
-    // Голова
-    const headGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-    const headMaterial = new THREE.MeshPhongMaterial({ color: 0xf5d0c5 });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 0.6;
-    avatarGroup.add(head);
-    
-    // Тело
-    const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.5, 32);
-    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x4a6fa5 });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 0.25;
-    avatarGroup.add(body);
-    
-    // Руки
-    const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.4, 32);
-    const armMaterial = new THREE.MeshPhongMaterial({ color: 0x4a6fa5 });
-    
-    // Левая рука
-    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.25, 0.3, 0);
-    leftArm.rotation.z = Math.PI / 2;
-    avatarGroup.add(leftArm);
-    
-    // Правая рука
-    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.25, 0.3, 0);
-    rightArm.rotation.z = -Math.PI / 2;
-    avatarGroup.add(rightArm);
-    
-    // Руки (кисти)
-    const handGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-    const handMaterial = new THREE.MeshPhongMaterial({ color: 0xf5d0c5 });
-    
-    // Левая рука
-    const leftHand = new THREE.Mesh(handGeometry, handMaterial);
-    leftHand.position.set(-0.45, 0.3, 0);
-    avatarGroup.add(leftHand);
-    
-    // Правая рука
-    const rightHand = new THREE.Mesh(handGeometry, handMaterial);
-    rightHand.position.set(0.45, 0.3, 0);
-    avatarGroup.add(rightHand);
-    
-    // Ноги
-    const legGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 32);
-    const legMaterial = new THREE.MeshPhongMaterial({ color: 0x2c3e50 });
-    
-    // Левая нога
-    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
-    leftLeg.position.set(-0.1, -0.2, 0);
-    avatarGroup.add(leftLeg);
-    
-    // Правая нога
-    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-    rightLeg.position.set(0.1, -0.2, 0);
-    avatarGroup.add(rightLeg);
-    
-    // Сохранение ссылки на аватар
-    avatarRef.current = {
-      group: avatarGroup,
-      head,
-      leftHand,
-      rightHand,
-      leftArm,
-      rightArm
-    };
-    
-    // Инициализация анимационного миксера
-    animationMixerRef.current = new THREE.AnimationMixer(avatarGroup);
+    loader.load(
+      '/models/mita/mita_model.glb', // путь к твоему файлу
+      (gltf) => {
+        const model = gltf.scene;
+        
+        // Масштабируем модель под размер сцены
+        model.scale.set(0.083, 0.083, 0.083);
+        
+        // Центрируем модель
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+
+        // Опускаем, чтобы стояла на полу
+        model.position.y = -0.6; 
+        model.position.z = -0.2;
+        sceneRef.current.add(model);
+        
+        // Находим руки по именам (нужно узнать точные названия костей)
+        const rightHand = model.getObjectByName('RightHand') || 
+                        model.getObjectByName('mixamorigRightHand');
+        const leftHand = model.getObjectByName('LeftHand') || 
+                        model.getObjectByName('mixamorigLeftHand');
+        
+        avatarRef.current = {
+          group: model,
+          rightHand,
+          leftHand
+        };
+        
+        // Инициализация анимационного миксера на сцене
+        animationMixerRef.current = new THREE.AnimationMixer(sceneRef.current);
+        
+        console.log('✅ Модель загружена!', {
+          rightHand: !!rightHand,
+          leftHand: !!leftHand
+        });
+      },
+      (xhr) => {
+        console.log(`Загрузка: ${(xhr.loaded / xhr.total * 100)}%`);
+      },
+      (error) => {
+        console.error('❌ Ошибка загрузки модели:', error);
+      }
+    );
   };
-  
+    
   // Воспроизведение анимации при получении новых данных
   useEffect(() => {
-    if (!animationData || !avatarRef.current || !animationMixerRef.current) return;
-    
-    // Остановка предыдущей анимации
-    if (activeAnimationRef.current) {
-      activeAnimationRef.current.stop();
+    // Ждём, пока аватар создастся
+    if (!avatarRef.current || !animationMixerRef.current) {
+      console.log('⏳ Аватар ещё не готов, ждём...');
+      return;
     }
     
-    // Создание анимации на основе полученных данных
-    const { leftHand, rightHand, leftArm, rightArm } = avatarRef.current;
-    
-    // Пример простой анимации для демонстрации
-    const duration = animationData.duration || 2.0;
-    const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
-    
-    // Простые позиции рук для имитации жеста
-    // В данном примере руки просто машут вверх-вниз
-    const rightHandPositions = [];
-    const leftHandPositions = [];
-    
-    // Создание ключевых кадров для движения рук
-    times.forEach((time, index) => {
-      // Правое движение руки
-      const rightX = 0.45;
-      const rightY = 0.3 + Math.sin(index * Math.PI / 2) * 0.2;
-      const rightZ = Math.cos(index * Math.PI / 2) * 0.2;
-      
-      rightHandPositions.push(rightX, rightY, rightZ);
-      
-      // Левое движение руки
-      const leftX = -0.45;
-      const leftY = 0.3 + Math.sin((index * Math.PI / 2) + Math.PI) * 0.2;
-      const leftZ = Math.cos((index * Math.PI / 2) + Math.PI) * 0.2;
-      
-      leftHandPositions.push(leftX, leftY, leftZ);
+    if (!animationData) return;
+
+    console.log('🎬 Данные анимации:', {
+      hasTracks: !!animationData.tracks,
+      trackCount: animationData.tracks?.length,
+      firstTrack: animationData.tracks?.[0],
+      objectNames: animationData.tracks?.map(t => t.object)
     });
     
-    // Создание ключевых треков для анимации
-    const rightHandTrack = new THREE.KeyframeTrack(
-      '.rightHand.position',
-      times,
-      rightHandPositions
-    );
+    // Проверка: если анимация уже воспроизводится, не запускаем новую
+    if (activeAnimationRef.current && activeAnimationRef.current.isRunning()) {
+      console.log('⏸️ Анимация уже воспроизводится, пропускаем');
+      return;
+    }
+
+    console.log('🎬 Воспроизведение анимации:', animationData);
     
-    const leftHandTrack = new THREE.KeyframeTrack(
-      '.leftHand.position',
-      times,
-      leftHandPositions
-    );
-    
-    // Создание клипа анимации
-    const clip = new THREE.AnimationClip('sign', duration, [
-      rightHandTrack,
-      leftHandTrack
-    ]);
-    
-    // Воспроизведение анимации
-    const action = animationMixerRef.current.clipAction(clip);
-    action.setLoop(THREE.LoopOnce);
-    action.clampWhenFinished = true;
-    action.play();
-    
-    activeAnimationRef.current = action;
-    
+    try {
+      const { leftHand, rightHand } = avatarRef.current;
+      
+      if (!leftHand || !rightHand) {
+        console.error('❌ Объекты рук не найдены');
+        return;
+      }
+      
+      // Остановка предыдущей анимации
+      if (activeAnimationRef.current) {
+        activeAnimationRef.current.stop();
+      }
+      // Создание анимации на основе полученных данных
+      let duration = animationData.duration || 2.0;
+      let tracks = [];
+      
+      if (animationData.tracks && animationData.tracks.length > 0) {
+        // Используем данные из сервера
+        animationData.tracks.forEach(trackData => {
+          const trackTimes = [];
+          const trackValues = [];
+          
+          if (trackData.keyframes && trackData.keyframes.length > 0) {
+            trackData.keyframes.forEach(kf => {
+              // Если сервер присылает время в кадре, используем его, иначе распределяем по длительности
+              const time = kf.time !== undefined ? kf.time : (kf.frame / 30) || 0;
+              trackTimes.push(time);
+              trackValues.push(kf.value.x, kf.value.y, kf.value.z);
+              
+              // Обновляем длительность клипа, если есть времена больше текущей
+              if (time > duration) duration = time;
+            });
+
+            // Определяем имя объекта (убеждаемся, что оно соответствует иерархии)
+             // В THREE.js для обращения к дочернему объекту по имени можно использовать скобки:
+             // [имя].свойство
+             const trackName = `${trackData.object}.position`;
+            
+            // Создаем векторный трек
+            const track = new THREE.VectorKeyframeTrack(
+              trackName,
+              trackTimes,
+              trackValues
+            );
+            tracks.push(track);
+          }
+        });
+      } else {
+        // Запасной вариант (тестовая анимация)
+        const times = [0, duration / 4, duration / 2, (3 * duration) / 4, duration];
+        const rightHandPositions = [];
+        const leftHandPositions = [];
+        
+        times.forEach((time, index) => {
+          rightHandPositions.push(0.45, 0.3 + Math.sin(index) * 0.2, 0);
+          leftHandPositions.push(-0.45, 0.3 + Math.cos(index) * 0.2, 0);
+        });
+        
+        tracks.push(new THREE.VectorKeyframeTrack('rightHand.position', times, rightHandPositions));
+         tracks.push(new THREE.VectorKeyframeTrack('leftHand.position', times, leftHandPositions));
+       }
+      
+      if (tracks.length === 0) {
+        console.error('❌ Не удалось создать треки анимации');
+        return;
+      }
+      // Создание анимации
+      const clip = new THREE.AnimationClip('sign', duration, tracks);
+      // Воспроизведение анимации
+      const action = animationMixerRef.current.clipAction(clip);
+      
+      // КРАЙНЕ ВАЖНО: Если имена не находятся автоматически, можно вручную привязать объекты
+      // Но в THREE.js AnimationMixer обычно это делает автоматически по имени.
+      // Попробуем явно обновить привязки (bindings)
+      // animationMixerRef.current.uncacheClip(clip);
+      
+      action.setLoop(THREE.LoopOnce);
+      action.clampWhenFinished = true;
+
+      // Когда анимация закончится, сбрасываем флаг
+      action.onFinished = () => {
+        activeAnimationRef.current = null;
+      };
+      // ФИНАЛЬНАЯ ДИАГНОСТИКА
+      console.log('🎯 ПРОВЕРКА АНИМАЦИИ:', {
+        mixer: !!animationMixerRef.current,
+        scene: !!sceneRef.current,
+        clipName: clip.name,
+        clipDuration: clip.duration,
+        tracksCount: clip.tracks.length,
+        trackNames: clip.tracks.map(t => t.name),
+        rightHandExists: !!sceneRef.current.getObjectByName('rightHand'),
+        leftHandExists: !!sceneRef.current.getObjectByName('leftHand'),
+        rightHandPos: sceneRef.current.getObjectByName('rightHand')?.position.clone(),
+        leftHandPos: sceneRef.current.getObjectByName('leftHand')?.position.clone()
+      });
+
+      // Принудительно обновим миксер перед воспроизведением
+      animationMixerRef.current.update(0);
+      action.play();
+      console.log('▶️ Анимация запущена');
+      activeAnimationRef.current = action;
+      
+    } catch (error) {
+      console.error('Ошибка воспроизведения анимации:', error);
+      activeAnimationRef.current = null;
+    }
   }, [animationData]);
   
   return (
