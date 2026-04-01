@@ -203,7 +203,7 @@ Part of my portfolio of open-source projects:
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-Copyright (c) 2024 Andrii Kovalov
+Copyright (c) 2025 Andrii Kovalov
 
 ---
 
