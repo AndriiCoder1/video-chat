@@ -52,7 +52,7 @@ const AvatarRenderer = ({ animationData }) => {
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
     
-    // Создание простого аватара (заглушка)
+    // Создание простого аватара 
     loadAvatarModel();
     
     // Обработка изменения размера окна
@@ -160,7 +160,7 @@ const AvatarRenderer = ({ animationData }) => {
     const loader = new GLTFLoader();
     
     loader.load(
-      '/models/mita/mita_model.glb', // путь к твоему файлу
+      '/models/mita/mita_model.glb', // путь к файлу
       (gltf) => {
         const model = gltf.scene;
         
@@ -177,7 +177,7 @@ const AvatarRenderer = ({ animationData }) => {
         model.position.z = -0.2;
         sceneRef.current.add(model);
         
-        // Находим руки по именам (нужно узнать точные названия костей)
+        // Находим руки по именам 
         const rightHand = model.getObjectByName('RightHand') || 
                         model.getObjectByName('mixamorigRightHand');
         const leftHand = model.getObjectByName('LeftHand') || 
@@ -265,8 +265,6 @@ const AvatarRenderer = ({ animationData }) => {
             });
 
             // Определяем имя объекта (убеждаемся, что оно соответствует иерархии)
-             // В THREE.js для обращения к дочернему объекту по имени можно использовать скобки:
-             // [имя].свойство
              const trackName = `${trackData.object}.position`;
             
             // Создаем векторный трек
@@ -302,8 +300,6 @@ const AvatarRenderer = ({ animationData }) => {
       // Воспроизведение анимации
       const action = animationMixerRef.current.clipAction(clip);
       
-      // КРАЙНЕ ВАЖНО: Если имена не находятся автоматически, можно вручную привязать объекты
-      // Но в THREE.js AnimationMixer обычно это делает автоматически по имени.
       // Попробуем явно обновить привязки (bindings)
       // animationMixerRef.current.uncacheClip(clip);
       
@@ -314,7 +310,7 @@ const AvatarRenderer = ({ animationData }) => {
       action.onFinished = () => {
         activeAnimationRef.current = null;
       };
-      // ФИНАЛЬНАЯ ДИАГНОСТИКА
+      // Диагностика
       console.log('🎯 ПРОВЕРКА АНИМАЦИИ:', {
         mixer: !!animationMixerRef.current,
         scene: !!sceneRef.current,
