@@ -192,7 +192,7 @@ const AvatarRenderer = ({ animationData }) => {
         // Инициализация анимационного миксера на сцене
         animationMixerRef.current = new THREE.AnimationMixer(sceneRef.current);
         
-        console.log('✅ Модель загружена!', {
+        console.log(' Модель загружена!', {
           rightHand: !!rightHand,
           leftHand: !!leftHand
         });
@@ -201,7 +201,7 @@ const AvatarRenderer = ({ animationData }) => {
         console.log(`Загрузка: ${(xhr.loaded / xhr.total * 100)}%`);
       },
       (error) => {
-        console.error('❌ Ошибка загрузки модели:', error);
+        console.error(' Ошибка загрузки модели:', error);
       }
     );
   };
@@ -210,13 +210,13 @@ const AvatarRenderer = ({ animationData }) => {
   useEffect(() => {
     // Ждём, пока аватар создастся
     if (!avatarRef.current || !animationMixerRef.current) {
-      console.log('⏳ Аватар ещё не готов, ждём...');
+      console.log(' Аватар ещё не готов, ждём...');
       return;
     }
     
     if (!animationData) return;
 
-    console.log('🎬 Данные анимации:', {
+    console.log(' Данные анимации:', {
       hasTracks: !!animationData.tracks,
       trackCount: animationData.tracks?.length,
       firstTrack: animationData.tracks?.[0],
@@ -225,17 +225,17 @@ const AvatarRenderer = ({ animationData }) => {
     
     // Проверка: если анимация уже воспроизводится, не запускаем новую
     if (activeAnimationRef.current && activeAnimationRef.current.isRunning()) {
-      console.log('⏸️ Анимация уже воспроизводится, пропускаем');
+      console.log(' Анимация уже воспроизводится, пропускаем');
       return;
     }
 
-    console.log('🎬 Воспроизведение анимации:', animationData);
+    console.log(' Воспроизведение анимации:', animationData);
     
     try {
       const { leftHand, rightHand } = avatarRef.current;
       
       if (!leftHand || !rightHand) {
-        console.error('❌ Объекты рук не найдены');
+        console.error(' Объекты рук не найдены');
         return;
       }
       
@@ -292,7 +292,7 @@ const AvatarRenderer = ({ animationData }) => {
        }
       
       if (tracks.length === 0) {
-        console.error('❌ Не удалось создать треки анимации');
+        console.error(' Не удалось создать треки анимации');
         return;
       }
       // Создание анимации
@@ -311,7 +311,7 @@ const AvatarRenderer = ({ animationData }) => {
         activeAnimationRef.current = null;
       };
       // Диагностика
-      console.log('🎯 ПРОВЕРКА АНИМАЦИИ:', {
+      console.log(' ПРОВЕРКА АНИМАЦИИ:', {
         mixer: !!animationMixerRef.current,
         scene: !!sceneRef.current,
         clipName: clip.name,
@@ -327,7 +327,7 @@ const AvatarRenderer = ({ animationData }) => {
       // Принудительно обновим миксер перед воспроизведением
       animationMixerRef.current.update(0);
       action.play();
-      console.log('▶️ Анимация запущена');
+      console.log(' Анимация запущена');
       activeAnimationRef.current = action;
       
     } catch (error) {
