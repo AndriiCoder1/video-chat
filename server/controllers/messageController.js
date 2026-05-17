@@ -125,7 +125,7 @@ exports.aiChat = async (req, res) => {
         animationData: animationData
       };
 
-      console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (sign):`, response.content);
+      console.log(`[${requestId}]  ИИ ответ сгенерирован (sign):`, response.content);
       return res.json(response);
     }
     
@@ -242,7 +242,7 @@ exports.aiChat = async (req, res) => {
         animationData: generateResponseAnimation(localTime)
       };
       
-      console.log(`[${requestId}] 🎯 Локальное время отправлено (${locale})`);
+      console.log(`[${requestId}]  Локальное время отправлено (${locale})`);
       return res.json(response);
     }
 
@@ -276,7 +276,7 @@ exports.aiChat = async (req, res) => {
           num: 10
         };
         
-        console.log(`[${requestId}] 🔍 Поиск: "${userMessage}" → оптимизирован: "${optimizedQuery}" (тип: ${queryType})`);
+        console.log(`[${requestId}]  Поиск: "${userMessage}" → оптимизирован: "${optimizedQuery}" (тип: ${queryType})`);
         
         const searchResults = await new Promise((resolve, reject) => {
           search.json(params, (data) => {
@@ -306,7 +306,7 @@ exports.aiChat = async (req, res) => {
           animationData: generateResponseAnimation(resultText)
         };
         
-        console.log(`[${requestId}] 🎯 Погода отправлена`);
+        console.log(`[${requestId}]  Погода отправлена`);
         return res.json(response);
         
       } else if (searchResults.organic_results?.[0]) {
@@ -327,7 +327,7 @@ exports.aiChat = async (req, res) => {
         animationData: generateResponseAnimation(resultText)
       };
       
-      console.log(`[${requestId}] 🎯 Результат поиска отправлен`);
+      console.log(`[${requestId}]  Результат поиска отправлен`);
       return res.json(searchResponse);
       
     } catch (err) {
@@ -394,7 +394,7 @@ exports.aiChat = async (req, res) => {
       };
       
       logError(spaceError, `Hugging Face Space Error [${requestId}]`);
-      console.error(`[${requestId}] ❌ Hugging Face Space Error:`, spaceErrorDetails);
+      console.error(`[${requestId}]  Hugging Face Space Error:`, spaceErrorDetails);
       
       if (spaceError.code === 'ECONNREFUSED') {
         aiResponse = 'Сервис ИИ временно недоступен. Попробуйте позже.';
@@ -418,7 +418,7 @@ exports.aiChat = async (req, res) => {
       ...(spaceErrorDetails && { errorDetails: spaceErrorDetails })
     };
     
-    console.log(`[${requestId}] 🎯 ИИ ответ сгенерирован (text):`, {
+    console.log(`[${requestId}]  ИИ ответ сгенерирован (text):`, {
       content: response.content,
       length: response.content?.length,
       hasError: !!spaceErrorDetails
@@ -429,7 +429,7 @@ exports.aiChat = async (req, res) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     logError(error, `aiChat [${requestId}]`);
-    console.error(`[${requestId}] ❌ Critical error in aiChat after ${duration}ms:`, error);
+    console.error(`[${requestId}]  Critical error in aiChat after ${duration}ms:`, error);
     
     res.status(500).json({ 
       error: 'Извините, произошла ошибка при обработке вашего сообщения. Попробуйте еще раз.',
