@@ -167,7 +167,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## 👨‍💻 About the Author
+##  About the Author
 
 This project was created by **Andrii Kovalov** ([@AndriiCoder1](https://github.com/AndriiCoder1)).
 
@@ -180,7 +180,7 @@ If you find this project useful, feel free to **star ⭐** the repository or for
 
 ---
 
-## 🔗 Related Projects
+##  Related Projects
 
 Part of my portfolio of open-source projects:
 
@@ -192,14 +192,14 @@ Part of my portfolio of open-source projects:
 
 ---
 
-## 📫 Contact & Social
+##  Contact & Social
 
 - **GitHub:** [github.com/AndriiCoder1](https://github.com/AndriiCoder1)
 - **Email:** [denisov20051985@gmail.com](mailto:denisov20051985@gmail.com)
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
