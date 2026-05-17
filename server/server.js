@@ -66,6 +66,6 @@ if (process.env.NODE_ENV === 'production') {
 // Установка порта и запуск сервера
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 ИИ Сервер жестового языка запущен на порту ${PORT}`);
-  console.log(`🌐 Режим: ${process.env.NODE_ENV || 'development'}`);
+  console.log(` ИИ Сервер жестового языка запущен на порту ${PORT}`);
+  console.log(` Режим: ${process.env.NODE_ENV || 'development'}`);
 });
