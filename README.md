@@ -186,6 +186,7 @@ Part of my portfolio of open-source projects:
 
 | Project | Description | Tech Stack |
 |---------|-------------|------------|
+| [**Kolo**](https://github.com/AndriiCoder1/kolo) | Cooperative CivicTech for migrant integration | Django, DRF, Stripe, Ollama AI, Resend |
 | [**EverRest**](https://github.com/AndriiCoder1/copy_everest) | Digital memorial platform (SaaS) | Django, PostgreSQL, Docker, Celery, Ollama AI |
 | [**Video Chat with Sign Language**](https://github.com/AndriiCoder1/video-chat) | Real-time sign language translation | React, Three.js, MediaPipe, WebRTC |
 | [**ChatHelp**](https://github.com/AndriiCoder1/chathelp) | Personal AI assistant with voice | Node.js, Hugging Face, Whisper |
