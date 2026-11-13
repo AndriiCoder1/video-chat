@@ -158,7 +158,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgements
+## Technologies & APIs Used
 
 - [MediaPipe](https://mediapipe.dev/) for the hand tracking solution
 - [TensorFlow.js](https://www.tensorflow.org/js) for the machine learning framework
